@@ -1,0 +1,147 @@
+@import 'tailwindcss';
+
+/* ------------------------------------------------------------------ *
+ * Parisa — cute pink theme
+ * ------------------------------------------------------------------ */
+@theme {
+  --font-sans: 'Quicksand Variable', ui-rounded, 'Hiragino Maru Gothic ProN',
+    'Segoe UI', system-ui, sans-serif;
+
+  /* surfaces */
+  --color-bg: #fff5f7;
+  --color-bg-deep: #ffeaf1;
+  --color-surface: #ffffff;
+  --color-surface-2: #fff0f5;
+
+  /* brand */
+  --color-rose: #ec7fa9;
+  --color-rose-deep: #d96591;
+  --color-rose-soft: #f7a8c4;
+  --color-blush: #ffe3ec;
+  --color-lavender: #c7b4e6;
+  --color-peach: #ffcaa6;
+  --color-mint: #a7e0cf;
+  --color-butter: #ffe6a8;
+  --color-sky: #a9d3ef;
+
+  /* ink */
+  --color-ink: #6b4753;
+  --color-ink-soft: #b0929c;
+  --color-ink-faint: #d9c3cc;
+
+  /* status */
+  --color-good: #6cc9a8;
+  --color-warn: #f6b26b;
+  --color-over: #f28e8e;
+
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.75rem;
+  --radius-3xl: 2rem;
+
+  --shadow-soft: 0 8px 24px -8px rgba(236, 127, 169, 0.28);
+  --shadow-card: 0 2px 10px -2px rgba(217, 101, 145, 0.15);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-synthesis-weight: none;
+    overscroll-behavior-y: none;
+  }
+
+  /* keep tap targets from showing a grey flash / text selection on mobile */
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input,
+  button,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+
+  /* hide number input spinners */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
+
+@layer utilities {
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pb-safe-nav {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 5.5rem);
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* gentle entrance for sheets / cards */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-pop-in {
+  animation: pop-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-sheet-up {
+  animation: sheet-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-fade-in {
+  animation: fade-in 0.2s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop-in,
+  .animate-sheet-up,
+  .animate-fade-in {
+    animation: none;
+  }
+}
