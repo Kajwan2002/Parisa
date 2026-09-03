@@ -121,6 +121,7 @@ export function SettingsPage() {
         <Card className="mt-1 divide-y divide-surface-2 p-0">
           <Row label="Categories" emoji="🏷️" onClick={() => navigate('/settings/categories')} />
           <Row label="Budgets" emoji="🎯" onClick={() => navigate('/budgets')} />
+          <Row label="Recurring payments" emoji="🔁" onClick={() => navigate('/recurring')} />
           <Row label="Income" emoji="💶" onClick={() => navigate('/income')} />
         </Card>
       </section>

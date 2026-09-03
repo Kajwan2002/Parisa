@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { ToastProvider } from '@/components/Toast'
 import { getSettings } from '@/db/repo'
+import { materializeRecurring } from '@/db/recurring'
 import { ensureSeeded } from '@/db/seed'
 import { useSettings } from '@/db/queries'
 import { BudgetsPage } from '@/features/budgets/BudgetsPage'
@@ -11,6 +12,7 @@ import { ExpenseEditorProvider, useExpenseEditor } from '@/features/expenses/Exp
 import { HistoryPage } from '@/features/history/HistoryPage'
 import { IncomePage } from '@/features/income/IncomePage'
 import { InsightsPage } from '@/features/insights/InsightsPage'
+import { RecurringPage } from '@/features/recurring/RecurringPage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { applyAccent } from '@/features/settings/accents'
 import { TabBar } from './TabBar'
@@ -24,7 +26,15 @@ export function App() {
       const s = await getSettings()
       applyAccent(s.themeAccent)
       setReady(true)
+      void materializeRecurring()
     })()
+
+    // catch up recurring payments when the app is re-opened / refocused
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void materializeRecurring()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
   }, [])
 
   if (!ready) return <Splash />
@@ -53,6 +63,7 @@ function Shell() {
         <Route path="/budgets" element={<BudgetsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/categories" element={<CategoriesPage />} />
+        <Route path="/recurring" element={<RecurringPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <TabBar onAdd={openNew} />

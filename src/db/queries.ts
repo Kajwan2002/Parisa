@@ -10,7 +10,7 @@ import {
 } from '@/lib/dates'
 import { db } from './db'
 import { getSettings } from './repo'
-import type { Category, Expense, Income, Settings } from './types'
+import type { Category, Expense, Income, Recurring, Settings } from './types'
 
 /* ------------------------------ basic lists ----------------------------- */
 
@@ -35,6 +35,13 @@ export function useCategoryMap(): Map<string, Category> | undefined {
 
 export function useExpense(id: string | null): Expense | undefined {
   return useLiveQuery(() => (id ? db.expenses.get(id) : undefined), [id])
+}
+
+export function useRecurring(): Recurring[] | undefined {
+  return useLiveQuery(async () => {
+    const all = await db.recurring.toArray()
+    return all.sort((a, b) => Number(b.isActive) - Number(a.isActive) || a.note.localeCompare(b.note))
+  }, [])
 }
 
 /* ---------------------------- month aggregates -------------------------- */

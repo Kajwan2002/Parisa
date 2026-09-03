@@ -20,6 +20,29 @@ export interface Expense {
   categoryId: string | null
   note: string
   spentOn: DateStr
+  /** set when this expense was auto-created by a recurring payment rule */
+  recurringId?: string | null
+  createdAt: number
+  updatedAt: number
+}
+
+export type RecurUnit = 'week' | 'month'
+
+export interface Recurring {
+  id: string
+  amount: number // cents
+  categoryId: string | null
+  note: string
+  /** repeats every `everyCount` `everyUnit`s (e.g. 6 months) */
+  everyCount: number
+  everyUnit: RecurUnit
+  /** date of the first payment; also the anchor for the repeat day */
+  anchorDate: DateStr
+  /** optional last date; null = forever */
+  endDate: DateStr | null
+  isActive: boolean
+  /** high-water mark: the latest occurrence already turned into an expense */
+  lastChargedOn: DateStr | null
   createdAt: number
   updatedAt: number
 }

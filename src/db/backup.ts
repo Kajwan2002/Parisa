@@ -1,9 +1,9 @@
 import { format } from 'date-fns'
 import { db } from './db'
 import { updateSettings } from './repo'
-import type { Category, Expense, Income, Settings } from './types'
+import type { Category, Expense, Income, Recurring, Settings } from './types'
 
-const BACKUP_VERSION = 1
+const BACKUP_VERSION = 2
 
 export interface BackupFile {
   app: 'parisa'
@@ -13,22 +13,24 @@ export interface BackupFile {
     categories: Category[]
     expenses: Expense[]
     income: Income[]
+    recurring?: Recurring[]
     settings: Settings[]
   }
 }
 
 export async function buildBackup(): Promise<BackupFile> {
-  const [categories, expenses, income, settings] = await Promise.all([
+  const [categories, expenses, income, recurring, settings] = await Promise.all([
     db.categories.toArray(),
     db.expenses.toArray(),
     db.income.toArray(),
+    db.recurring.toArray(),
     db.settings.toArray(),
   ])
   return {
     app: 'parisa',
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
-    data: { categories, expenses, income, settings },
+    data: { categories, expenses, income, recurring, settings },
   }
 }
 
@@ -92,20 +94,30 @@ export async function importBackup(text: string): Promise<ImportResult> {
   }
   if (!isBackup(parsed)) throw new Error('That doesn’t look like a Parisa backup.')
 
-  const { categories, expenses, income, settings } = parsed.data
+  const { categories, expenses, income, recurring, settings } = parsed.data
 
-  await db.transaction('rw', db.categories, db.expenses, db.income, db.settings, async () => {
-    await Promise.all([
-      db.categories.clear(),
-      db.expenses.clear(),
-      db.income.clear(),
-      db.settings.clear(),
-    ])
-    if (categories?.length) await db.categories.bulkAdd(categories)
-    if (expenses?.length) await db.expenses.bulkAdd(expenses)
-    if (income?.length) await db.income.bulkAdd(income)
-    if (settings?.length) await db.settings.bulkAdd(settings)
-  })
+  await db.transaction(
+    'rw',
+    db.categories,
+    db.expenses,
+    db.income,
+    db.recurring,
+    db.settings,
+    async () => {
+      await Promise.all([
+        db.categories.clear(),
+        db.expenses.clear(),
+        db.income.clear(),
+        db.recurring.clear(),
+        db.settings.clear(),
+      ])
+      if (categories?.length) await db.categories.bulkAdd(categories)
+      if (expenses?.length) await db.expenses.bulkAdd(expenses)
+      if (income?.length) await db.income.bulkAdd(income)
+      if (recurring?.length) await db.recurring.bulkAdd(recurring)
+      if (settings?.length) await db.settings.bulkAdd(settings)
+    },
+  )
 
   return {
     categories: categories?.length ?? 0,
@@ -116,12 +128,21 @@ export async function importBackup(text: string): Promise<ImportResult> {
 
 /** Wipe everything and re-seed from scratch. */
 export async function wipeAll(): Promise<void> {
-  await db.transaction('rw', db.categories, db.expenses, db.income, db.settings, async () => {
-    await Promise.all([
-      db.categories.clear(),
-      db.expenses.clear(),
-      db.income.clear(),
-      db.settings.clear(),
-    ])
-  })
+  await db.transaction(
+    'rw',
+    db.categories,
+    db.expenses,
+    db.income,
+    db.recurring,
+    db.settings,
+    async () => {
+      await Promise.all([
+        db.categories.clear(),
+        db.expenses.clear(),
+        db.income.clear(),
+        db.recurring.clear(),
+        db.settings.clear(),
+      ])
+    },
+  )
 }

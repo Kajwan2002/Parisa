@@ -88,7 +88,14 @@ function Row({
     >
       <CategoryBadge category={category} size={42} />
       <div className="min-w-0 flex-1">
-        <p className="truncate font-bold text-ink">{expense.note || categoryName}</p>
+        <p className="flex items-center gap-1 truncate font-bold text-ink">
+          {expense.recurringId && (
+            <span className="text-xs text-ink-faint" title="Recurring payment" aria-label="Recurring">
+              🔁
+            </span>
+          )}
+          <span className="truncate">{expense.note || categoryName}</span>
+        </p>
         {expense.note && (
           <p className="truncate text-xs font-semibold text-ink-faint">{categoryName}</p>
         )}
