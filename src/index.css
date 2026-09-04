@@ -134,6 +134,17 @@
 .animate-sheet-up {
   animation: sheet-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+/* bottom-sheet: CSS-driven entrance (no JS timing), drag handled inline */
+.sheet-panel {
+  transform: translateY(0);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@starting-style {
+  .sheet-panel {
+    transform: translateY(100%);
+  }
+}
 .animate-fade-in {
   animation: fade-in 0.2s ease both;
 }
@@ -143,5 +154,8 @@
   .animate-sheet-up,
   .animate-fade-in {
     animation: none;
+  }
+  .sheet-panel {
+    transition: none;
   }
 }

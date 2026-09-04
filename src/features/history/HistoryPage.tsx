@@ -17,6 +17,7 @@ import {
 } from '@/lib/dates'
 import { formatMoney } from '@/lib/money'
 import {
+  useActiveTheme,
   useCategoryMap,
   useMonthExpenses,
   useMonthSummary,
@@ -97,6 +98,7 @@ function MonthView({
   const summary = useMonthSummary(monthKey)
   const expenses = useMonthExpenses(monthKey)
   const catMap = useCategoryMap()
+  const t = useActiveTheme()
 
   const filtered = useMemo(
     () => (catFilter ? (expenses ?? []).filter((e) => e.categoryId === catFilter) : expenses ?? []),
@@ -172,7 +174,7 @@ function MonthView({
           <ExpenseList expenses={filtered} currency={currency} />
         ) : (
           <Card>
-            <EmptyState emoji="🍃" title="Nothing here" hint="No expenses for this period." />
+            <EmptyState emoji={t.emptyIcon.history} title="Nothing here" hint="No expenses for this period." />
           </Card>
         )}
       </section>
@@ -194,6 +196,7 @@ function YearView({
   onPickMonth: (monthKey: string) => void
 }) {
   const summary = useYearSummary(yearKey)
+  const t = useActiveTheme()
 
   const bars = useMemo(
     () =>
@@ -248,7 +251,7 @@ function YearView({
         </section>
       ) : (
         <Card>
-          <EmptyState emoji="🌱" title={`Nothing logged in ${yearKey}`} hint="Add expenses and they'll show up here." />
+          <EmptyState emoji={t.emptyIcon.year} title={`Nothing logged in ${yearKey}`} hint="Add expenses and they'll show up here." />
         </Card>
       )}
     </>

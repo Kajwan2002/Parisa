@@ -8,6 +8,19 @@
       "port": 5273
     },
     {
+      "name": "treasury-dev",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
+      "runtimeArgs": [
+        "node_modules/vite/bin/vite.js",
+        "--mode",
+        "treasury",
+        "--port",
+        "5275",
+        "--strictPort"
+      ],
+      "port": 5275
+    },
+    {
       "name": "parisa-preview",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
       "runtimeArgs": [

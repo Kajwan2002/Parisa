@@ -25,9 +25,25 @@ Other scripts:
 | script | what it does |
 | --- | --- |
 | `npm run build` | type-check, generate icons, build to `dist/`, add `404.html` |
+| `npm run dev:treasury` | dev server in the **Treasury** variant (dark) |
+| `npm run build:treasury` | build the Treasury variant to `dist/mine/` (run `npm run build` first) |
 | `npm run preview` | serve the production build locally |
 | `npm run lint` | oxlint |
 | `npm run icons` | regenerate PWA icons from `scripts/generate-icons.mjs` |
+
+## Two builds, one codebase
+
+One repo produces two installable apps that never drift apart:
+
+| | app | theme | link | db |
+| --- | --- | --- | --- | --- |
+| hers | **Parisa** | Blossom (pink) | `…github.io/Parisa/` | `parisa` |
+| his | **The Treasury** | Midnight (dark) | `…github.io/Parisa/mine/` | `parisa-treasury` |
+
+The variant is chosen by `VITE_VARIANT=treasury` at build time (see `vite.config.ts`
+`VARIANTS`); it sets the name, icon, colours, install scope, and IndexedDB name.
+There is no in-app theme switcher — each build is locked to its look. The deploy
+workflow builds both and publishes them together on one `git push`.
 
 ## Deploy (GitHub Pages)
 
@@ -41,14 +57,16 @@ If you later attach a custom domain, change `VITE_BASE` in the workflow to `/`.
 
 ## Data model
 
-Everything lives in one IndexedDB database (`parisa`) via Dexie:
+Everything lives in one IndexedDB database via Dexie:
 
 - `categories` — name, emoji, colour, optional monthly budget
-- `expenses` — amount (integer cents), category, note, date
+- `expenses` — amount (integer cents), category, note, date, optional links
 - `income` — amount, source, date, `recurringMonthly`
-- `settings` — currency, overall budget, theme accent, last backup time
+- `recurring` — subscription rules that auto-log as expenses
+- `tabEntries` / `tabSettlements` — the shared "running tab"
+- `settings` — currency, overall budget, accent, partner name, last backup time
 
-A backup file is a JSON dump of all four tables (`src/db/backup.ts`).
+A backup file is a JSON dump of every table (`src/db/backup.ts`).
 
 ## Project layout
 
@@ -65,6 +83,15 @@ src/
     income/       salary / parents / gifts, recurring
     history/      monthly & yearly views
     insights/     friendly stat cards
-    settings/     backup, currency, theme, reset
+    recurring/    subscriptions that auto-log
+    tab/          shared "running tab" + settle-up
+    settings/     backup, currency, accent, partner name, reset
   lib/            money, dates, colour helpers
+  theme/          Blossom / Midnight palettes + copy voice
 ```
+
+## Deploy note (two apps)
+
+`.github/workflows/deploy.yml` builds Parisa → `dist/`, then The Treasury →
+`dist/mine/`, and publishes the combined folder. The root `404.html` routes an
+unknown path to whichever app it belongs to.

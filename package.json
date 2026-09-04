@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:treasury": "vite --mode treasury",
     "icons": "node scripts/generate-icons.mjs",
     "prebuild": "node scripts/generate-icons.mjs",
     "build": "tsc -b && vite build",
     "postbuild": "node scripts/postbuild.mjs",
+    "build:treasury": "node scripts/build-treasury.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
     "typecheck": "tsc -b"

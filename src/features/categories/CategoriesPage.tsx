@@ -8,7 +8,8 @@ import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
 import { formatMoney } from '@/lib/money'
 import { addCategory, deleteCategory, reorderCategories, updateCategory } from '@/db/repo'
-import { useCategories, useSettings } from '@/db/queries'
+import { useActiveTheme, useCategories, useSettings } from '@/db/queries'
+import { cheer } from '@/theme/apply'
 import type { Category } from '@/db/types'
 import { CategoryForm } from './CategoryForm'
 
@@ -16,6 +17,7 @@ export function CategoriesPage() {
   const toast = useToast()
   const categories = useCategories()
   const settings = useSettings()
+  const t = useActiveTheme()
   const currency = settings?.currency ?? 'EUR'
 
   const [adding, setAdding] = useState(false)
@@ -49,7 +51,7 @@ export function CategoriesPage() {
     >
       {categories && categories.length === 0 && (
         <Card>
-          <EmptyState emoji="🌷" title="No categories" hint="Add one to start sorting your spending." />
+          <EmptyState emoji={t.emptyIcon.categories} title="No categories" hint="Add one to start sorting your spending." />
         </Card>
       )}
 
@@ -178,7 +180,7 @@ function EditCategoryBody({
         autoFocus={false}
         onSubmit={async (input) => {
           await updateCategory(category.id, input)
-          toast('Saved 💕')
+          toast(cheer('Saved 💕'))
           onDone()
         }}
       />

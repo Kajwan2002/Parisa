@@ -94,6 +94,11 @@ function Row({
               🔁
             </span>
           )}
+          {expense.tabEntryId && (
+            <span className="text-xs text-ink-faint" title="Split expense" aria-label="Split">
+              🤝
+            </span>
+          )}
           <span className="truncate">{expense.note || categoryName}</span>
         </p>
         {expense.note && (

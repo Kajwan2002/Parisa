@@ -14,7 +14,8 @@ import { IncomePage } from '@/features/income/IncomePage'
 import { InsightsPage } from '@/features/insights/InsightsPage'
 import { RecurringPage } from '@/features/recurring/RecurringPage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
-import { applyAccent } from '@/features/settings/accents'
+import { TabPage } from '@/features/tab/TabPage'
+import { APP_NAME, activeTheme, applyAccent } from '@/theme/apply'
 import { TabBar } from './TabBar'
 
 export function App() {
@@ -64,6 +65,7 @@ function Shell() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/categories" element={<CategoriesPage />} />
         <Route path="/recurring" element={<RecurringPage />} />
+        <Route path="/tab" element={<TabPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <TabBar onAdd={openNew} />
@@ -93,8 +95,8 @@ function Splash() {
   return (
     <div className="grid min-h-dvh place-items-center bg-bg">
       <div className="flex flex-col items-center gap-3">
-        <div className="text-5xl">🌸</div>
-        <p className="text-sm font-bold text-ink-soft">Parisa</p>
+        {activeTheme.splashEmoji && <div className="text-5xl">{activeTheme.splashEmoji}</div>}
+        <p className="text-sm font-bold text-ink-soft">{APP_NAME}</p>
       </div>
     </div>
   )

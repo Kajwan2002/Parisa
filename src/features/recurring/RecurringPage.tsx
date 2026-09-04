@@ -8,7 +8,8 @@ import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
 import { shortDate } from '@/lib/dates'
 import { formatMoney } from '@/lib/money'
-import { useCategoryMap, useRecurring, useSettings } from '@/db/queries'
+import { useActiveTheme, useCategoryMap, useRecurring, useSettings } from '@/db/queries'
+import { cheer } from '@/theme/apply'
 import {
   addRecurring,
   deleteRecurring,
@@ -27,6 +28,7 @@ export function RecurringPage() {
   const currency = settings?.currency ?? 'EUR'
   const rules = useRecurring()
   const catMap = useCategoryMap()
+  const t = useActiveTheme()
 
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<Recurring | null>(null)
@@ -51,7 +53,7 @@ export function RecurringPage() {
       {rules && rules.length === 0 && (
         <Card>
           <EmptyState
-            emoji="🔁"
+            emoji={t.emptyIcon.recurring}
             title="No recurring payments yet"
             hint="Add subscriptions like iCloud or Netflix and they'll be logged automatically on the day they're charged."
           />
@@ -105,7 +107,7 @@ export function RecurringPage() {
           onSubmit={async (input) => {
             await addRecurring(input)
             setAdding(false)
-            toast('Recurring payment added 🔁')
+            toast(cheer('Recurring payment added 🔁'))
           }}
         />
       </Sheet>
@@ -121,7 +123,7 @@ export function RecurringPage() {
               onSubmit={async (input) => {
                 await updateRecurring(editing.id, input)
                 setEditing(null)
-                toast('Saved 💕')
+                toast(cheer('Saved 💕'))
               }}
               onDelete={async () => {
                 await deleteRecurring(editing.id)

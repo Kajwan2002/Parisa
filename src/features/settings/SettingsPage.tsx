@@ -11,7 +11,8 @@ import { exportBackup, importBackup, wipeAll } from '@/db/backup'
 import { ensureSeeded } from '@/db/seed'
 import { updateSettings } from '@/db/repo'
 import { useSettings } from '@/db/queries'
-import { ACCENTS, accentFor, applyAccent } from './accents'
+import { APP_NAME, accentFor, applyAccent, cheer } from '@/theme/apply'
+import { THEME } from '@/theme/themes'
 
 const CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF', 'SEK', 'DKK', 'NOK', 'PLN']
 
@@ -35,7 +36,7 @@ export function SettingsPage() {
     try {
       setBusy(true)
       const how = await exportBackup()
-      toast(how === 'shared' ? 'Backup ready to save 💾' : 'Backup downloaded 💾')
+      toast(cheer(how === 'shared' ? 'Backup ready to save 💾' : 'Backup downloaded 💾'))
     } catch (e) {
       if ((e as Error).name !== 'AbortError') toast('Could not export')
     } finally {
@@ -57,7 +58,7 @@ export function SettingsPage() {
       setBusy(true)
       const r = await importBackup(text)
       await ensureSeeded()
-      toast(`Restored ${r.expenses} expenses 🌸`)
+      toast(cheer(`Restored ${r.expenses} expenses 🌸`))
     } catch (err) {
       toast((err as Error).message || 'Could not import')
     } finally {
@@ -70,7 +71,7 @@ export function SettingsPage() {
     setBusy(true)
     await wipeAll()
     await ensureSeeded()
-    applyAccent(ACCENTS[0].base)
+    applyAccent('')
     setBusy(false)
     toast('Everything reset')
   }
@@ -122,7 +123,31 @@ export function SettingsPage() {
           <Row label="Categories" emoji="🏷️" onClick={() => navigate('/settings/categories')} />
           <Row label="Budgets" emoji="🎯" onClick={() => navigate('/budgets')} />
           <Row label="Recurring payments" emoji="🔁" onClick={() => navigate('/recurring')} />
+          <Row label="Shared tab" emoji="🤝" onClick={() => navigate('/tab')} />
           <Row label="Income" emoji="💶" onClick={() => navigate('/income')} />
+        </Card>
+      </section>
+
+      {/* shared tab */}
+      <section>
+        <SectionTitle>Shared tab</SectionTitle>
+        <Card className="mt-1 flex flex-col gap-2">
+          <p className="text-sm text-ink-soft">
+            The name of the person you split costs with. Used on the "Split with…" toggle
+            and the tab.
+          </p>
+          {settings && (
+            <input
+              key={settings.partnerName}
+              defaultValue={settings.partnerName}
+              placeholder="e.g. Kajwan"
+              onBlur={(e) => {
+                const v = e.target.value.trim()
+                if (v !== settings.partnerName) updateSettings({ partnerName: v })
+              }}
+              className="w-full rounded-2xl bg-surface px-4 py-3 font-semibold text-ink shadow-card outline-none placeholder:text-ink-faint focus:ring-2 focus:ring-rose-soft"
+            />
+          )}
         </Card>
       </section>
 
@@ -150,9 +175,9 @@ export function SettingsPage() {
 
       {/* accent */}
       <section>
-        <SectionTitle>Theme</SectionTitle>
+        <SectionTitle>Accent</SectionTitle>
         <Card className="mt-1 flex items-center gap-3">
-          {ACCENTS.map((a) => (
+          {THEME.accents.map((a) => (
             <button
               key={a.id}
               type="button"
@@ -163,7 +188,9 @@ export function SettingsPage() {
               }}
               className={cn(
                 'h-9 w-9 rounded-full transition',
-                activeAccent.id === a.id ? 'ring-2 ring-ink ring-offset-2 ring-offset-surface' : '',
+                activeAccent.id === a.id
+                  ? 'ring-2 ring-ink ring-offset-2 ring-offset-surface'
+                  : '',
               )}
               style={{ background: a.base }}
             />
@@ -182,7 +209,7 @@ export function SettingsPage() {
       </section>
 
       <p className="py-2 text-center text-xs font-semibold text-ink-faint">
-        Parisa · made with 💕
+        {THEME.footer(APP_NAME)}
       </p>
 
       <ConfirmDialog

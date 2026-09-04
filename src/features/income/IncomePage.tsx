@@ -10,13 +10,15 @@ import { currentMonthKey, monthLabel, shortDate } from '@/lib/dates'
 import { formatMoney } from '@/lib/money'
 import { db } from '@/db/db'
 import { addIncome, deleteIncome, updateIncome } from '@/db/repo'
-import { incomeForMonth, useSettings } from '@/db/queries'
+import { incomeForMonth, useActiveTheme, useSettings } from '@/db/queries'
+import { cheer } from '@/theme/apply'
 import type { Income } from '@/db/types'
 import { IncomeForm } from './IncomeForm'
 
 export function IncomePage() {
   const toast = useToast()
   const settings = useSettings()
+  const t = useActiveTheme()
   const currency = settings?.currency ?? 'EUR'
   const monthKey = currentMonthKey()
 
@@ -54,7 +56,7 @@ export function IncomePage() {
       {rows && rows.length === 0 && (
         <Card>
           <EmptyState
-            emoji="💌"
+            emoji={t.emptyIcon.income}
             title="No income added yet"
             hint="Add your salary, money from your parents, or a gift."
           />
@@ -93,7 +95,7 @@ export function IncomePage() {
           onSubmit={async (input) => {
             await addIncome(input)
             setAdding(false)
-            toast('Income added 🌷')
+            toast(cheer('Income added 🌷'))
           }}
         />
       </Sheet>
@@ -108,7 +110,7 @@ export function IncomePage() {
             onSubmit={async (input) => {
               await updateIncome(editing.id, input)
               setEditing(null)
-              toast('Saved 💕')
+              toast(cheer('Saved 💕'))
             }}
             onDelete={async () => {
               await deleteIncome(editing.id)

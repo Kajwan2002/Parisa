@@ -1,16 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Parisa">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffd9e6"/>
-      <stop offset="1" stop-color="#ec7fa9"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="120" fill="url(#bg)"/>
-  <path fill="#ffffff" d="M256 400c-8 0-15-4-20-10-58-63-96-104-96-152 0-38 30-68 68-68 22 0 42 10 55 27 13-17 33-27 55-27 38 0 68 30 68 68 0 48-38 89-96 152-5 6-12 10-20 10z"/>
-  <circle cx="352" cy="356" r="52" fill="#ffe6a8" stroke="#ffffff" stroke-width="10"/>
-  <text x="352" y="376" font-family="Georgia, 'Times New Roman', serif" font-size="58" font-weight="700" fill="#d96591" text-anchor="middle">€</text>
-  <g fill="#ffffff">
-    <path d="M150 120l8 22 22 8-22 8-8 22-8-22-22-8 22-8z"/>
-    <path d="M388 150l6 16 16 6-16 6-6 16-6-16-16-6 16-6z"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffdbe8"/><stop offset="1" stop-color="#ee88b0"/>
+  </linearGradient></defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <g transform="translate(0 0) scale(1)">
+    <path fill="#ffffff" d="M256 400c-8 0-15-4-20-10-58-63-96-104-96-152 0-38 30-68 68-68 22 0 42 10 55 27 13-17 33-27 55-27 38 0 68 30 68 68 0 48-38 89-96 152-5 6-12 10-20 10z"/>
+    <circle cx="352" cy="356" r="52" fill="#ffe6a8" stroke="#ffffff" stroke-width="10"/>
+    <text x="352" y="377" font-family="Georgia, serif" font-size="58" font-weight="700" fill="#d96591" text-anchor="middle">€</text>
+    <g fill="#ffffff">
+      <path d="M150 120l8 22 22 8-22 8-8 22-8-22-22-8 22-8z"/>
+      <path d="M388 150l6 16 16 6-16 6-6 16-6-16-16-6 16-6z"/>
+    </g>
   </g>
 </svg>

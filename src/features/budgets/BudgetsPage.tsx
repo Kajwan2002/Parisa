@@ -11,6 +11,7 @@ import { currentMonthKey, monthLabel } from '@/lib/dates'
 import { formatMoney } from '@/lib/money'
 import { updateCategory, updateSettings } from '@/db/repo'
 import { useCategories, useMonthSummary, useSettings } from '@/db/queries'
+import { cheer } from '@/theme/apply'
 import type { Category } from '@/db/types'
 
 export function BudgetsPage() {
@@ -64,7 +65,7 @@ export function BudgetsPage() {
             full
             onClick={async () => {
               await updateSettings({ overallMonthlyBudget: overall > 0 ? overall : null })
-              toast('Budget saved 💕')
+              toast(cheer('Budget saved 💕'))
             }}
           >
             Save budget
@@ -171,7 +172,7 @@ function CategoryBudgetBody({
           full
           onClick={async () => {
             await updateCategory(category.id, { monthlyBudget: value > 0 ? value : null })
-            toast('Saved 💕')
+            toast(cheer('Saved 💕'))
             onDone()
           }}
         >

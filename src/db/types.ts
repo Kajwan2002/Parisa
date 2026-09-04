@@ -22,8 +22,38 @@ export interface Expense {
   spentOn: DateStr
   /** set when this expense was auto-created by a recurring payment rule */
   recurringId?: string | null
+  /** set when this expense is the "your share" of a shared (split) expense */
+  tabEntryId?: string | null
   createdAt: number
   updatedAt: number
+}
+
+export type TabParty = 'you' | 'partner'
+
+/** One shared purchase that created a debt between the two of you. */
+export interface TabEntry {
+  id: string
+  total: number // cents — the whole bill
+  yourShare: number // cents — what you consumed
+  partnerShare: number // cents — what the partner consumed
+  paidBy: TabParty
+  categoryId: string | null
+  note: string
+  date: DateStr
+  /** the linked consumption Expense for `yourShare` (null when yourShare is 0) */
+  expenseId: string | null
+  createdAt: number
+  updatedAt: number
+}
+
+/** A repayment between the two of you. Reduces the net tab; picks no entries. */
+export interface TabSettlement {
+  id: string
+  amount: number // cents
+  by: TabParty // who handed over the money
+  date: DateStr
+  note: string
+  createdAt: number
 }
 
 export type RecurUnit = 'week' | 'month'
@@ -66,7 +96,10 @@ export interface Settings {
   currency: string
   monthStartDay: number
   overallMonthlyBudget: number | null // cents
+  /** accent hex within the build's theme; '' → the theme's first accent */
   themeAccent: string
+  /** name of the person you share a tab with; '' → shown as "Partner" */
+  partnerName: string
   seeded: boolean
   lastBackupAt: number | null
   createdAt: number
@@ -77,7 +110,8 @@ export const DEFAULT_SETTINGS: Omit<Settings, 'createdAt'> = {
   currency: 'EUR',
   monthStartDay: 1,
   overallMonthlyBudget: null,
-  themeAccent: '#ec7fa9',
+  themeAccent: '',
+  partnerName: '',
   seeded: false,
   lastBackupAt: null,
 }

@@ -24,12 +24,21 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Build
+
+      # hers → https://<user>.github.io/<repo>/   (Parisa · pink)
+      - name: Build Parisa
         run: npm run build
         env:
-          # project sites are served from https://<user>.github.io/<repo>/
-          # if you later use a custom domain, change this to "/"
           VITE_BASE: /${{ github.event.repository.name }}/
+
+      # his → https://<user>.github.io/<repo>/mine/   (The Treasury · dark)
+      - name: Build The Treasury
+        run: npm run build
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/mine/
+          VITE_VARIANT: treasury
+          VITE_OUT_DIR: dist/mine
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

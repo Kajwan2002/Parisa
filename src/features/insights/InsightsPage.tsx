@@ -7,10 +7,12 @@ import { Ring } from '@/components/Ring'
 import { Screen } from '@/components/Screen'
 import { currentMonthKey, monthLabel, shiftMonth, shortDate } from '@/lib/dates'
 import { formatMoney } from '@/lib/money'
-import { useInsights, useSettings } from '@/db/queries'
+import { useActiveTheme, useInsights, useSettings } from '@/db/queries'
+import { cheer } from '@/theme/apply'
 
 export function InsightsPage() {
   const settings = useSettings()
+  const t = useActiveTheme()
   const currency = settings?.currency ?? 'EUR'
   const [monthKey, setMonthKey] = useState(currentMonthKey())
   const ins = useInsights(monthKey)
@@ -27,7 +29,7 @@ export function InsightsPage() {
       {!ins || ins.spent === 0 ? (
         <Card>
           <EmptyState
-            emoji="🔍"
+            emoji={t.emptyIcon.insights}
             title="Nothing to analyse yet"
             hint="Add a few expenses this month and little insights will show up here."
           />
@@ -84,7 +86,7 @@ export function InsightsPage() {
                 <p className="font-bold text-ink">of your income spent</p>
                 <p className="text-sm font-semibold text-ink-soft">
                   {ins.savedSoFar != null && ins.savedSoFar >= 0
-                    ? `${formatMoney(ins.savedSoFar, currency, { compact: true })} kept so far 🌷`
+                    ? cheer(`${formatMoney(ins.savedSoFar, currency, { compact: true })} kept so far 🌷`)
                     : `${formatMoney(Math.abs(ins.savedSoFar ?? 0), currency, {
                         compact: true,
                       })} over your income`}

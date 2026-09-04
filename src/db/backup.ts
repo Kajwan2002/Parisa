@@ -1,9 +1,17 @@
 import { format } from 'date-fns'
 import { db } from './db'
 import { updateSettings } from './repo'
-import type { Category, Expense, Income, Recurring, Settings } from './types'
+import type {
+  Category,
+  Expense,
+  Income,
+  Recurring,
+  Settings,
+  TabEntry,
+  TabSettlement,
+} from './types'
 
-const BACKUP_VERSION = 2
+const BACKUP_VERSION = 3
 
 export interface BackupFile {
   app: 'parisa'
@@ -14,23 +22,28 @@ export interface BackupFile {
     expenses: Expense[]
     income: Income[]
     recurring?: Recurring[]
+    tabEntries?: TabEntry[]
+    tabSettlements?: TabSettlement[]
     settings: Settings[]
   }
 }
 
 export async function buildBackup(): Promise<BackupFile> {
-  const [categories, expenses, income, recurring, settings] = await Promise.all([
-    db.categories.toArray(),
-    db.expenses.toArray(),
-    db.income.toArray(),
-    db.recurring.toArray(),
-    db.settings.toArray(),
-  ])
+  const [categories, expenses, income, recurring, tabEntries, tabSettlements, settings] =
+    await Promise.all([
+      db.categories.toArray(),
+      db.expenses.toArray(),
+      db.income.toArray(),
+      db.recurring.toArray(),
+      db.tabEntries.toArray(),
+      db.tabSettlements.toArray(),
+      db.settings.toArray(),
+    ])
   return {
     app: 'parisa',
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
-    data: { categories, expenses, income, recurring, settings },
+    data: { categories, expenses, income, recurring, tabEntries, tabSettlements, settings },
   }
 }
 
@@ -94,27 +107,36 @@ export async function importBackup(text: string): Promise<ImportResult> {
   }
   if (!isBackup(parsed)) throw new Error('That doesn’t look like a Parisa backup.')
 
-  const { categories, expenses, income, recurring, settings } = parsed.data
+  const { categories, expenses, income, recurring, tabEntries, tabSettlements, settings } =
+    parsed.data
 
   await db.transaction(
     'rw',
-    db.categories,
-    db.expenses,
-    db.income,
-    db.recurring,
-    db.settings,
+    [
+      db.categories,
+      db.expenses,
+      db.income,
+      db.recurring,
+      db.tabEntries,
+      db.tabSettlements,
+      db.settings,
+    ],
     async () => {
       await Promise.all([
         db.categories.clear(),
         db.expenses.clear(),
         db.income.clear(),
         db.recurring.clear(),
+        db.tabEntries.clear(),
+        db.tabSettlements.clear(),
         db.settings.clear(),
       ])
       if (categories?.length) await db.categories.bulkAdd(categories)
       if (expenses?.length) await db.expenses.bulkAdd(expenses)
       if (income?.length) await db.income.bulkAdd(income)
       if (recurring?.length) await db.recurring.bulkAdd(recurring)
+      if (tabEntries?.length) await db.tabEntries.bulkAdd(tabEntries)
+      if (tabSettlements?.length) await db.tabSettlements.bulkAdd(tabSettlements)
       if (settings?.length) await db.settings.bulkAdd(settings)
     },
   )
@@ -130,17 +152,23 @@ export async function importBackup(text: string): Promise<ImportResult> {
 export async function wipeAll(): Promise<void> {
   await db.transaction(
     'rw',
-    db.categories,
-    db.expenses,
-    db.income,
-    db.recurring,
-    db.settings,
+    [
+      db.categories,
+      db.expenses,
+      db.income,
+      db.recurring,
+      db.tabEntries,
+      db.tabSettlements,
+      db.settings,
+    ],
     async () => {
       await Promise.all([
         db.categories.clear(),
         db.expenses.clear(),
         db.income.clear(),
         db.recurring.clear(),
+        db.tabEntries.clear(),
+        db.tabSettlements.clear(),
         db.settings.clear(),
       ])
     },

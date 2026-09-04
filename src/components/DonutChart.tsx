@@ -17,7 +17,7 @@ export function DonutChart({ slices, size = 180, thickness = 26, children }: Don
   const total = slices.reduce((s, x) => s + x.value, 0)
   const r = (size - thickness) / 2
   const circ = 2 * Math.PI * r
-  const gap = slices.length > 1 ? 2 : 0 // px gap between segments
+  const gap = slices.filter((s) => s.value > 0).length > 1 ? 2 : 0 // px gap between segments
 
   let offset = 0
   const segs =
