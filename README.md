@@ -46,6 +46,27 @@ The variant is chosen by `VITE_VARIANT=treasury` at build time (see `vite.config
 There is no in-app theme switcher — each build is locked to its look. The deploy
 workflow builds both and publishes them together on one `git push`.
 
+## The running balance
+
+Months are not islands. Whatever is left at the end of one — or overdrawn —
+is the opening figure of the next, so nothing resets on the 1st:
+
+```
+balance(month) = carried in + income(month) − cash spent(month)
+```
+
+The carry is counted from `balanceAnchor` (the month `startingBalance`
+describes), defaulting to the earliest month that has any data, which makes the
+whole history carry with no setup. Settings → Balance → *Correct the balance*
+asks what's actually in the account **right now** and back-solves the figure for
+the start of this month, so the dashboard immediately shows the number typed.
+
+Only the dashboard carries. History and Budgets stay deliberately per-month —
+"what did I spend in September" is still a monthly question. Spending uses the
+same cash view as the rest of the dashboard (`cashOut` in `src/db/queries.ts`),
+so fronting a shared bill lowers the balance by the whole amount and a repayment
+puts it back.
+
 ## Shared-tab sync (optional)
 
 The two apps can keep **only the shared tab** in step — who owes whom, and the
@@ -100,7 +121,8 @@ Everything lives in one IndexedDB database via Dexie:
 - `tabEntries` / `tabSettlements` — the shared "running tab"
 - `tabTombstones` — tab rows deleted here, so sync can't bring them back
 - `syncState` — the tab-sync pairing (never included in a backup: it holds a token)
-- `settings` — currency, overall budget, accent, partner name, last backup time
+- `settings` — currency, overall budget, accent, partner name, starting
+  balance + its anchor month, last backup time
 
 A backup file is a JSON dump of every table (`src/db/backup.ts`).
 

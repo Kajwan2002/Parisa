@@ -4,6 +4,7 @@ import {
   currentMonthKey,
   elapsedDaysInMonth,
   monthKeyOf,
+  monthsBetween,
   monthsOfYear,
   shiftMonth,
   type MonthKey,
@@ -285,6 +286,51 @@ export function useMonthSummary(monthKey: MonthKey): MonthSummary | undefined {
 export interface DashboardSummary extends MonthSummary {
   /** net tab money moved this month: + = you paid out, − = partner paid you */
   settlementNet: number
+  /** balance carried in from every earlier month (+ left over, − overdrawn) */
+  carryIn: number
+  /** carryIn + this month's income — the money actually available this month */
+  available: number
+  /**
+   * Whether `carryIn` was accumulated from earlier recorded months, as opposed
+   * to being purely the starting balance set for this month.
+   */
+  carriedFromMonths: boolean
+  /**
+   * The running balance: what's left after this month's spending. Unlike
+   * `leftToSpend` on a plain month this never resets in January — or on the 1st.
+   */
+  balance: number | null
+}
+
+/**
+ * Cash in/out for a set of rows, in the dashboard's "mirrors the bank" sense:
+ * a shared bill costs you the whole amount when you pay it, nothing when they
+ * do, and settlements move real money either way. Shared by the month figures
+ * and the carried balance so the two can never drift apart.
+ */
+function cashOut(expenses: Expense[], tab: TabEntry[], settled: TabSettlement[]): number {
+  return (
+    sum(expenses.map((e) => e.amount)) +
+    sum(tab.filter((t) => t.paidBy === 'you').map((t) => t.partnerShare)) -
+    sum(tab.filter((t) => t.paidBy === 'partner').map((t) => t.yourShare)) +
+    sum(settled.filter((s) => s.by === 'you').map((s) => s.amount)) -
+    sum(settled.filter((s) => s.by === 'partner').map((s) => s.amount))
+  )
+}
+
+/**
+ * Income counted across a span of months, inclusive. A one-off counts in its own
+ * month; a monthly one counts once for every month it has been running.
+ */
+export function incomeBetween(all: Income[], fromKey: MonthKey, toKey: MonthKey): number {
+  if (fromKey > toKey) return 0
+  return all.reduce((total, i) => {
+    const start = monthKeyOf(i.receivedOn)
+    if (!i.recurringMonthly) return start >= fromKey && start <= toKey ? total + i.amount : total
+    const first = start > fromKey ? start : fromKey
+    if (first > toKey) return total
+    return total + i.amount * (monthsBetween(first, toKey) + 1)
+  }, 0)
 }
 
 /**
@@ -295,27 +341,32 @@ export interface DashboardSummary extends MonthSummary {
  * view above.
  */
 async function computeDashboard(monthKey: MonthKey): Promise<DashboardSummary> {
-  const [expenses, tabEntries, settlements, categories, incomeRows, settings] =
+  const [allExpenses, allTab, allSettled, categories, incomeRows, settings] =
     await Promise.all([
-      db.expenses.where('spentOn').startsWith(monthKey).toArray(),
-      db.tabEntries.where('date').startsWith(monthKey).toArray(),
-      db.tabSettlements.where('date').startsWith(monthKey).toArray(),
+      db.expenses.toArray(),
+      db.tabEntries.toArray(),
+      db.tabSettlements.toArray(),
       db.categories.toArray(),
       db.income.toArray(),
       getSettings(),
     ])
   const catById = new Map(categories.map((c) => [c.id, c]))
 
-  const consumption = sum(expenses.map((e) => e.amount))
-  const fronted = sum(
-    tabEntries.filter((t) => t.paidBy === 'you').map((t) => t.partnerShare),
-  )
-  const consumedUnpaid = sum(
-    tabEntries.filter((t) => t.paidBy === 'partner').map((t) => t.yourShare),
-  )
+  const inMonth = <T>(rows: T[], date: (r: T) => string, key: MonthKey) =>
+    rows.filter((r) => monthKeyOf(date(r)) === key)
+  const upTo = <T>(rows: T[], date: (r: T) => string, from: MonthKey, to: MonthKey) =>
+    rows.filter((r) => {
+      const k = monthKeyOf(date(r))
+      return k >= from && k <= to
+    })
+
+  const expenses = inMonth(allExpenses, (e) => e.spentOn, monthKey)
+  const tabEntries = inMonth(allTab, (t) => t.date, monthKey)
+  const settlements = inMonth(allSettled, (s) => s.date, monthKey)
+
   const settledOut = sum(settlements.filter((s) => s.by === 'you').map((s) => s.amount))
   const settledIn = sum(settlements.filter((s) => s.by === 'partner').map((s) => s.amount))
-  const cashSpent = consumption + fronted - consumedUnpaid + settledOut - settledIn
+  const cashSpent = cashOut(expenses, tabEntries, settlements)
 
   const catCash = new Map<string | null, number>()
   const add = (k: string | null, v: number) => catCash.set(k, (catCash.get(k) ?? 0) + v)
@@ -343,15 +394,53 @@ async function computeDashboard(monthKey: MonthKey): Promise<DashboardSummary> {
 
   const income = incomeForMonth(incomeRows, monthKey)
   const overallBudget = settings.overallMonthlyBudget
-  const leftToSpend =
-    overallBudget != null ? overallBudget - cashSpent : income > 0 ? income - cashSpent : null
+
+  // ---- the running balance ------------------------------------------------
+  // Months are not islands: whatever was left over — or overdrawn — at the end
+  // of one month is the opening figure of the next. Count from the anchor (the
+  // month the starting balance describes), defaulting to the earliest month
+  // that has any data at all.
+  const earliest = [
+    ...allExpenses.map((e) => monthKeyOf(e.spentOn)),
+    ...incomeRows.map((i) => monthKeyOf(i.receivedOn)),
+    ...allTab.map((t) => monthKeyOf(t.date)),
+  ].reduce<MonthKey | null>((min, k) => (min === null || k < min ? k : min), null)
+
+  const anchor = settings.balanceAnchor ?? earliest ?? monthKey
+  const prev = shiftMonth(monthKey, -1)
+
+  const carriedFromMonths = anchor <= prev
+  let carryIn = settings.startingBalance
+  if (carriedFromMonths) {
+    carryIn +=
+      incomeBetween(incomeRows, anchor, prev) -
+      cashOut(
+        upTo(allExpenses, (e) => e.spentOn, anchor, prev),
+        upTo(allTab, (t) => t.date, anchor, prev),
+        upTo(allSettled, (s) => s.date, anchor, prev),
+      )
+  }
+
+  const available = carryIn + income
+  // With nothing coming in there is no balance to speak of — fall back to the
+  // plain monthly budget so the card still says something useful.
+  const hasMoneyIn = settings.startingBalance !== 0 || incomeRows.length > 0
+  const balance = hasMoneyIn
+    ? available - cashSpent
+    : overallBudget != null
+      ? overallBudget - cashSpent
+      : null
 
   return {
     monthKey,
     spent: cashSpent,
     income,
     overallBudget,
-    leftToSpend,
+    leftToSpend: balance,
+    carryIn,
+    available,
+    carriedFromMonths,
+    balance,
     byCategory,
     expenseCount: expenses.length,
     perDay: Math.max(0, cashSpent) / Math.max(1, elapsedDaysInMonth(monthKey)),

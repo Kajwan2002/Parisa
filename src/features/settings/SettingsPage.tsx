@@ -12,6 +12,7 @@ import { ensureSeeded } from '@/db/seed'
 import { updateSettings } from '@/db/repo'
 import { useSettings } from '@/db/queries'
 import { APP_NAME, accentFor, applyAccent, cheer } from '@/theme/apply'
+import { BalanceCard } from './BalanceCard'
 import { THEME } from '@/theme/themes'
 
 const CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF', 'SEK', 'DKK', 'NOK', 'PLN']
@@ -115,6 +116,8 @@ export function SettingsPage() {
           />
         </Card>
       </section>
+
+      <BalanceCard />
 
       {/* manage */}
       <section>

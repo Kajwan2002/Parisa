@@ -47,6 +47,12 @@ export function shiftMonth(key: MonthKey, n: number): MonthKey {
   return monthKeyOf(addMonths(parseISO(key + '-01'), n))
 }
 
+/** whole months from one "YYYY-MM" key to another; negative if b is earlier */
+export function monthsBetween(a: MonthKey, b: MonthKey): number {
+  const years = Number(b.slice(0, 4)) - Number(a.slice(0, 4))
+  return years * 12 + (Number(b.slice(5, 7)) - Number(a.slice(5, 7)))
+}
+
 export function shiftYear(key: YearKey, n: number): YearKey {
   return String(Number(key) + n)
 }

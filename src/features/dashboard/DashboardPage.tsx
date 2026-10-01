@@ -5,7 +5,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { Ring } from '@/components/Ring'
 import { Screen } from '@/components/Screen'
 import { cn } from '@/lib/cn'
-import { currentMonthKey, monthLabel } from '@/lib/dates'
+import { currentMonthKey, monthLabel, monthLabelNoYear, shiftMonth } from '@/lib/dates'
 import { formatMoney } from '@/lib/money'
 import {
   useActiveTheme,
@@ -42,9 +42,11 @@ export function DashboardPage() {
     )
   }
 
-  const { spent, income, overallBudget, leftToSpend } = summary
-  const target = overallBudget ?? (income > 0 ? income : null)
-  const over = leftToSpend != null && leftToSpend < 0
+  const { spent, income, overallBudget, balance, carryIn, available, carriedFromMonths } =
+    summary
+  // the ring still measures this month; the badge under it is the running total
+  const target = overallBudget ?? (available > 0 ? available : null)
+  const over = balance != null && balance < 0
   const slices = summary.byCategory
     .filter((c) => c.spent > 0)
     .map((c) => ({
@@ -85,19 +87,28 @@ export function DashboardPage() {
           </Ring>
         )}
 
-        {leftToSpend != null ? (
-          <div
-            className="rounded-full px-4 py-1.5 text-sm font-bold"
-            style={{
-              background: over ? 'var(--color-over)' : 'var(--color-blush)',
-              color: over ? '#fff' : 'var(--color-rose-deep)',
-            }}
-          >
-            {over
-              ? `${formatMoney(Math.abs(leftToSpend), currency, { compact: true })} over`
-              : `${formatMoney(leftToSpend, currency, { compact: true })} left${
-                  overallBudget == null ? ' of income' : ''
-                }`}
+        {balance != null ? (
+          <div className="flex flex-col items-center gap-1.5">
+            <div
+              className="rounded-full px-4 py-1.5 text-sm font-bold"
+              style={{
+                background: over ? 'var(--color-over)' : 'var(--color-blush)',
+                color: over ? '#fff' : 'var(--color-rose-deep)',
+              }}
+            >
+              {over
+                ? `${formatMoney(Math.abs(balance), currency, { compact: true })} overdrawn`
+                : `${formatMoney(balance, currency, { compact: true })} left`}
+            </div>
+            {carryIn !== 0 && (
+              <p className="text-xs font-semibold text-ink-faint">
+                {carryIn < 0 ? '−' : '+'}
+                {formatMoney(Math.abs(carryIn), currency, { compact: true })}{' '}
+                {carriedFromMonths
+                  ? `carried over from ${monthLabelNoYear(shiftMonth(monthKey, -1))}`
+                  : `at the start of ${monthLabelNoYear(monthKey)}`}
+              </p>
+            )}
           </div>
         ) : (
           <button

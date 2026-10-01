@@ -149,6 +149,18 @@ export interface Settings {
    * stays correct). Off = the entry only moves the tab.
    */
   tabAutoLogShare: boolean
+  /**
+   * What was actually in the account at the start of `balanceAnchor`, in cents
+   * (may be negative). The running balance on the dashboard counts forward from
+   * there, so money left over — or overdrawn — carries from month to month
+   * instead of every month starting from zero.
+   */
+  startingBalance: number
+  /**
+   * "YYYY-MM" the starting balance applies to. null = count from the first month
+   * that has any data, which is the right default before it's ever been set.
+   */
+  balanceAnchor: string | null
   seeded: boolean
   lastBackupAt: number | null
   createdAt: number
@@ -162,6 +174,8 @@ export const DEFAULT_SETTINGS: Omit<Settings, 'createdAt'> = {
   themeAccent: '',
   partnerName: '',
   tabAutoLogShare: true,
+  startingBalance: 0,
+  balanceAnchor: null,
   seeded: false,
   lastBackupAt: null,
 }
