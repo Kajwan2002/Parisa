@@ -7,6 +7,7 @@ goes with soft circular charts.
 - **All data stays on the device** — no login, no cloud, fully private.
 - Works **offline** once installed.
 - **Backup / restore** from Settings (save the file to iCloud Drive for safety).
+- Optionally, **the shared tab alone** can sync with one other phone — see below.
 
 ## Tech
 
@@ -45,6 +46,39 @@ The variant is chosen by `VITE_VARIANT=treasury` at build time (see `vite.config
 There is no in-app theme switcher — each build is locked to its look. The deploy
 workflow builds both and publishes them together on one `git push`.
 
+## Shared-tab sync (optional)
+
+The two apps can keep **only the shared tab** in step — who owes whom, and the
+settlements. Expenses, categories, income and budgets never leave the phone.
+
+How it works:
+
+- One **secret gist** holds two files, `tab-her.json` and `tab-him.json`. Each
+  phone writes only its own file, so there is nothing to conflict over.
+- Contents are **AES-GCM encrypted** on the phone with a key that exists only
+  inside the pairing code, so GitHub stores blobs it can't read.
+- Rows merge **last-write-wins** on `updatedAt`; deletes leave a tombstone so the
+  other phone can't resurrect them.
+- Polling uses `If-None-Match`, and a 304 costs no rate limit.
+
+The direction problem, and why it can't bite: locally a row says `paidBy: 'you'`,
+which is meaningless to the other phone. On the wire everything is absolute
+(`payer: 'her'`, `shares: { her, him }`), keyed to the `side` baked into each
+build — Blossom is `her`, Midnight is `him`. Pairing refuses two devices that
+claim the same side, and each row records who added it.
+
+Setting it up (once): make a GitHub **classic** token with only the `gist` scope
+and no expiry → in one app, Shared tab → Set up sync → paste it → send the
+pairing code to the other phone → paste it there. Delete the message afterwards;
+the code carries the token.
+
+When a shared expense arrives from the other phone, your own share is also
+logged as an expense here (toggle: *Log my share*). That is what keeps the
+dashboard's cash view honest — see `computeDashboard` in `src/db/queries.ts`.
+
+In dev, `window.__tabSync` (`src/sync/selftest.ts`) exercises all of this against
+an in-memory gist, with no GitHub and no token.
+
 ## Deploy (GitHub Pages)
 
 1. Create a repo on GitHub and push this project to the `main` branch.
@@ -64,6 +98,8 @@ Everything lives in one IndexedDB database via Dexie:
 - `income` — amount, source, date, `recurringMonthly`
 - `recurring` — subscription rules that auto-log as expenses
 - `tabEntries` / `tabSettlements` — the shared "running tab"
+- `tabTombstones` — tab rows deleted here, so sync can't bring them back
+- `syncState` — the tab-sync pairing (never included in a backup: it holds a token)
 - `settings` — currency, overall budget, accent, partner name, last backup time
 
 A backup file is a JSON dump of every table (`src/db/backup.ts`).
@@ -87,6 +123,7 @@ src/
     tab/          shared "running tab" + settle-up
     settings/     backup, currency, accent, partner name, reset
   lib/            money, dates, colour helpers
+  sync/           shared-tab sync: wire format, crypto, gist transport, engine
   theme/          Blossom / Midnight palettes + copy voice
 ```
 

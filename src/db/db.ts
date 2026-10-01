@@ -5,8 +5,10 @@ import type {
   Income,
   Recurring,
   Settings,
+  SyncState,
   TabEntry,
   TabSettlement,
+  TabTombstone,
 } from './types'
 
 // Local-only database. Everything lives on the device; the backup file in
@@ -19,6 +21,8 @@ export const db = new Dexie(import.meta.env.VITE_DB_NAME || 'parisa') as Dexie &
   recurring: EntityTable<Recurring, 'id'>
   tabEntries: EntityTable<TabEntry, 'id'>
   tabSettlements: EntityTable<TabSettlement, 'id'>
+  tabTombstones: EntityTable<TabTombstone, 'id'>
+  syncState: EntityTable<SyncState, 'id'>
   settings: EntityTable<Settings, 'id'>
 }
 
@@ -42,6 +46,22 @@ db.version(3).stores({
   tabEntries: 'id, date, paidBy',
   tabSettlements: 'id, date, by',
 })
+
+// v4 — syncing the tab (and only the tab) with the other person's phone
+db.version(4)
+  .stores({
+    tabTombstones: 'id, deletedAt',
+    syncState: 'id',
+  })
+  .upgrade(async (tx) => {
+    // settlements gain updatedAt so they can take part in last-write-wins
+    await tx
+      .table('tabSettlements')
+      .toCollection()
+      .modify((s: TabSettlement) => {
+        if (s.updatedAt == null) s.updatedAt = s.createdAt ?? Date.now()
+      })
+  })
 
 /** Ask the browser to keep our data (helps on iOS home-screen installs). */
 export async function requestPersistentStorage(): Promise<boolean> {

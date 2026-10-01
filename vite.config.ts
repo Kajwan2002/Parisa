@@ -6,8 +6,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // ------------------------------------------------------------------ //
 // Build variants — one codebase, two installable apps.
-//   (default)            → hers · "Parisa"       · Blossom · db "parisa"
-//   VITE_VARIANT=treasury → his  · "The Treasury" · Midnight · db "parisa-treasury"
+//   (default)            → hers · "Parisa"       · Blossom · db "parisa"        · side "her"
+//   VITE_VARIANT=treasury → his  · "The Treasury" · Midnight · db "parisa-treasury" · side "him"
+// `side` is the fixed identity used by shared-tab sync: the wire format is
+// absolute ("her paid"), so neither phone can invert the other's debts.
 // Locally: `npm run dev:treasury` / `npm run build:treasury` (via .env.treasury).
 // In CI: the deploy workflow sets VITE_VARIANT / VITE_BASE / VITE_OUT_DIR.
 // ------------------------------------------------------------------ //
@@ -21,6 +23,7 @@ const VARIANTS = {
     theme: 'blossom',
     dbName: 'parisa',
     statusBar: 'default',
+    side: 'her',
   },
   treasury: {
     appName: 'The Treasury',
@@ -31,6 +34,7 @@ const VARIANTS = {
     theme: 'midnight',
     dbName: 'parisa-treasury',
     statusBar: 'black-translucent',
+    side: 'him',
   },
 } as const
 
@@ -82,6 +86,7 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.VITE_APP_NAME': JSON.stringify(v.shortName),
       'import.meta.env.VITE_THEME': JSON.stringify(v.theme),
       'import.meta.env.VITE_DB_NAME': JSON.stringify(v.dbName),
+      'import.meta.env.VITE_SIDE': JSON.stringify(v.side),
     },
     resolve: {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },

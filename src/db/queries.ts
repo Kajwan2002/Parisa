@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   currentMonthKey,
@@ -8,6 +9,7 @@ import {
   type MonthKey,
   type YearKey,
 } from '@/lib/dates'
+import { onSyncActivity, statusOf, type SyncStatus } from '@/sync/engine'
 import { THEME } from '@/theme/themes'
 import { db } from './db'
 import { getSettings } from './repo'
@@ -17,6 +19,7 @@ import type {
   Income,
   Recurring,
   Settings,
+  SyncState,
   TabEntry,
   TabSettlement,
 } from './types'
@@ -171,6 +174,19 @@ async function computeTabSummary(): Promise<TabSummary> {
 
 export function useTabSummary(): TabSummary | undefined {
   return useLiveQuery(() => computeTabSummary(), [])
+}
+
+/* ---------------------------- shared-tab sync ---------------------------- */
+
+export function useSyncState(): SyncState | undefined {
+  return useLiveQuery(() => db.syncState.get('sync'), [])
+}
+
+export function useSyncStatus(): SyncStatus {
+  const state = useSyncState()
+  const [syncing, setSyncing] = useState(false)
+  useEffect(() => onSyncActivity(setSyncing), [])
+  return statusOf(state, syncing)
 }
 
 /** whether the shared-tab feature has been used / set up at all */

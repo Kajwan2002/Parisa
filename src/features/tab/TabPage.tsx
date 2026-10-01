@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/Button'
 import { Card } from '@/components/Card'
 import { CategoryBadge } from '@/components/CategoryBadge'
@@ -11,12 +11,24 @@ import { cn } from '@/lib/cn'
 import { shortDate } from '@/lib/dates'
 import { formatMoney } from '@/lib/money'
 import { deleteSettlement } from '@/db/repo'
-import { useActiveTheme, useCategoryMap, useSettings, useTabSummary } from '@/db/queries'
+import {
+  useActiveTheme,
+  useCategoryMap,
+  useSettings,
+  useSyncStatus,
+  useTabSummary,
+} from '@/db/queries'
+import { syncNow } from '@/sync/engine'
+import { MY_SIDE } from '@/sync/side'
 import { cheer } from '@/theme/apply'
 import type { TabEntryView } from '@/db/queries'
-import type { Category, TabSettlement } from '@/db/types'
+import type { Category, Side, TabSettlement } from '@/db/types'
 import { useExpenseEditor } from '@/features/expenses/ExpenseEditorProvider'
 import { SettleSheet } from './SettleSheet'
+import { SyncSheet } from './SyncSheet'
+
+/** keep the tab fresh while this screen is open (304s cost no rate limit) */
+const POLL_MS = 20_000
 
 type Row =
   | { kind: 'entry'; date: string; sort: number; entry: TabEntryView }
@@ -32,9 +44,17 @@ export function TabPage() {
   const { openEditTab } = useExpenseEditor()
 
   const [settling, setSettling] = useState(false)
+  const [syncOpen, setSyncOpen] = useState(false)
   const [deleteSettle, setDeleteSettle] = useState<string | null>(null)
+  const sync = useSyncStatus()
 
   const partner = tab?.partnerName?.trim() || 'Partner'
+
+  useEffect(() => {
+    if (!sync.paired) return
+    const id = setInterval(() => void syncNow(), POLL_MS)
+    return () => clearInterval(id)
+  }, [sync.paired])
 
   const rows = useMemo<Row[]>(() => {
     if (!tab) return []
@@ -117,6 +137,14 @@ export function TabPage() {
         )}
       </Card>
 
+      <SyncBar
+        paired={sync.paired}
+        syncing={sync.syncing}
+        error={sync.lastError}
+        partner={partner}
+        onOpen={() => setSyncOpen(true)}
+      />
+
       {!hasAnything ? (
         <Card>
           <EmptyState
@@ -134,6 +162,7 @@ export function TabPage() {
                 entry={r.entry}
                 partner={partner}
                 currency={currency}
+                showAuthor={sync.paired}
                 category={
                   r.entry.categoryId ? (catMap?.get(r.entry.categoryId) ?? null) : null
                 }
@@ -177,6 +206,8 @@ export function TabPage() {
         currency={currency}
       />
 
+      <SyncSheet open={syncOpen} onClose={() => setSyncOpen(false)} />
+
       <ConfirmDialog
         open={deleteSettle !== null}
         title="Delete this settlement?"
@@ -194,17 +225,59 @@ export function TabPage() {
   )
 }
 
+function SyncBar({
+  paired,
+  syncing,
+  error,
+  partner,
+  onOpen,
+}: {
+  paired: boolean
+  syncing: boolean
+  error: string | null
+  partner: string
+  onOpen: () => void
+}) {
+  const label = !paired
+    ? 'Not synced — this tab is only on this phone'
+    : error
+      ? 'Sync paused — tap to fix'
+      : syncing
+        ? 'Syncing…'
+        : `Synced with ${partner}`
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full items-center gap-2 rounded-2xl bg-surface px-4 py-2.5 text-left shadow-card active:opacity-80"
+    >
+      <span
+        className={cn(
+          'h-2 w-2 shrink-0 rounded-full',
+          !paired ? 'bg-ink-faint' : error ? 'bg-over' : 'bg-good',
+        )}
+      />
+      <span className="flex-1 truncate text-xs font-bold text-ink-soft">{label}</span>
+      <span className="shrink-0 text-xs font-bold text-rose-deep">
+        {paired ? 'Manage' : 'Set up'}
+      </span>
+    </button>
+  )
+}
+
 function EntryRow({
   entry,
   partner,
   currency,
   category,
+  showAuthor,
   onClick,
 }: {
   entry: TabEntryView
   partner: string
   currency: string
   category: Category | null
+  showAuthor: boolean
   onClick: () => void
 }) {
   const debt = entry.paidBy === 'you' ? entry.partnerShare : entry.yourShare
@@ -212,6 +285,8 @@ function EntryRow({
   const partial = !done && entry.clearedAmount > 0
   const dirText =
     entry.paidBy === 'you' ? `you paid · ${partner} owes` : `${partner} paid · you owe`
+  const byThem: Side | null =
+    showAuthor && entry.authorSide && entry.authorSide !== MY_SIDE ? entry.authorSide : null
   const money = (c: number) => formatMoney(c, currency, { compact: true })
 
   return (
@@ -232,6 +307,7 @@ function EntryRow({
         <p className="truncate text-xs font-semibold text-ink-faint">
           {shortDate(entry.date)} · {dirText}
           {partial ? ` · ${money(entry.clearedAmount)} settled` : ''}
+          {byThem ? ` · added by ${partner}` : ''}
         </p>
       </div>
       <div className="shrink-0 text-right">

@@ -15,6 +15,7 @@ import { InsightsPage } from '@/features/insights/InsightsPage'
 import { RecurringPage } from '@/features/recurring/RecurringPage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { TabPage } from '@/features/tab/TabPage'
+import { SyncRunner } from '@/sync/SyncRunner'
 import { APP_NAME, activeTheme, applyAccent } from '@/theme/apply'
 import { TabBar } from './TabBar'
 
@@ -45,6 +46,7 @@ export function App() {
       <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
         <ExpenseEditorProvider>
           <AccentSync />
+          <SyncRunner />
           <Shell />
         </ExpenseEditorProvider>
       </BrowserRouter>

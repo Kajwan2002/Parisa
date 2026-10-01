@@ -136,6 +136,9 @@ export function SettingsPage() {
             The name of the person you split costs with. Used on the "Split with…" toggle
             and the tab.
           </p>
+          <p className="text-xs font-semibold text-ink-faint">
+            You can sync just the tab with their phone — open Shared tab above.
+          </p>
           {settings && (
             <input
               key={settings.partnerName}

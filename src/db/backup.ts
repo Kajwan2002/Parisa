@@ -9,9 +9,10 @@ import type {
   Settings,
   TabEntry,
   TabSettlement,
+  TabTombstone,
 } from './types'
 
-const BACKUP_VERSION = 3
+const BACKUP_VERSION = 4
 
 export interface BackupFile {
   app: 'parisa'
@@ -24,26 +25,48 @@ export interface BackupFile {
     recurring?: Recurring[]
     tabEntries?: TabEntry[]
     tabSettlements?: TabSettlement[]
+    tabTombstones?: TabTombstone[]
     settings: Settings[]
   }
 }
 
+// Note: `syncState` is deliberately NOT in the backup — it holds a GitHub token,
+// which has no business sitting in a JSON file in iCloud Drive. Re-pair instead.
+
 export async function buildBackup(): Promise<BackupFile> {
-  const [categories, expenses, income, recurring, tabEntries, tabSettlements, settings] =
-    await Promise.all([
-      db.categories.toArray(),
-      db.expenses.toArray(),
-      db.income.toArray(),
-      db.recurring.toArray(),
-      db.tabEntries.toArray(),
-      db.tabSettlements.toArray(),
-      db.settings.toArray(),
-    ])
+  const [
+    categories,
+    expenses,
+    income,
+    recurring,
+    tabEntries,
+    tabSettlements,
+    tabTombstones,
+    settings,
+  ] = await Promise.all([
+    db.categories.toArray(),
+    db.expenses.toArray(),
+    db.income.toArray(),
+    db.recurring.toArray(),
+    db.tabEntries.toArray(),
+    db.tabSettlements.toArray(),
+    db.tabTombstones.toArray(),
+    db.settings.toArray(),
+  ])
   return {
     app: 'parisa',
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
-    data: { categories, expenses, income, recurring, tabEntries, tabSettlements, settings },
+    data: {
+      categories,
+      expenses,
+      income,
+      recurring,
+      tabEntries,
+      tabSettlements,
+      tabTombstones,
+      settings,
+    },
   }
 }
 
@@ -107,8 +130,16 @@ export async function importBackup(text: string): Promise<ImportResult> {
   }
   if (!isBackup(parsed)) throw new Error('That doesn’t look like a Parisa backup.')
 
-  const { categories, expenses, income, recurring, tabEntries, tabSettlements, settings } =
-    parsed.data
+  const {
+    categories,
+    expenses,
+    income,
+    recurring,
+    tabEntries,
+    tabSettlements,
+    tabTombstones,
+    settings,
+  } = parsed.data
 
   await db.transaction(
     'rw',
@@ -119,6 +150,7 @@ export async function importBackup(text: string): Promise<ImportResult> {
       db.recurring,
       db.tabEntries,
       db.tabSettlements,
+      db.tabTombstones,
       db.settings,
     ],
     async () => {
@@ -129,6 +161,7 @@ export async function importBackup(text: string): Promise<ImportResult> {
         db.recurring.clear(),
         db.tabEntries.clear(),
         db.tabSettlements.clear(),
+        db.tabTombstones.clear(),
         db.settings.clear(),
       ])
       if (categories?.length) await db.categories.bulkAdd(categories)
@@ -137,6 +170,7 @@ export async function importBackup(text: string): Promise<ImportResult> {
       if (recurring?.length) await db.recurring.bulkAdd(recurring)
       if (tabEntries?.length) await db.tabEntries.bulkAdd(tabEntries)
       if (tabSettlements?.length) await db.tabSettlements.bulkAdd(tabSettlements)
+      if (tabTombstones?.length) await db.tabTombstones.bulkAdd(tabTombstones)
       if (settings?.length) await db.settings.bulkAdd(settings)
     },
   )
@@ -148,7 +182,7 @@ export async function importBackup(text: string): Promise<ImportResult> {
   }
 }
 
-/** Wipe everything and re-seed from scratch. */
+/** Wipe everything and re-seed from scratch. Also drops the sync pairing. */
 export async function wipeAll(): Promise<void> {
   await db.transaction(
     'rw',
@@ -159,6 +193,8 @@ export async function wipeAll(): Promise<void> {
       db.recurring,
       db.tabEntries,
       db.tabSettlements,
+      db.tabTombstones,
+      db.syncState,
       db.settings,
     ],
     async () => {
@@ -169,6 +205,8 @@ export async function wipeAll(): Promise<void> {
         db.recurring.clear(),
         db.tabEntries.clear(),
         db.tabSettlements.clear(),
+        db.tabTombstones.clear(),
+        db.syncState.clear(),
         db.settings.clear(),
       ])
     },

@@ -1,4 +1,6 @@
 import { newId } from '@/lib/id'
+import { MY_SIDE } from '@/sync/side'
+import type { LocalEntryFields, LocalSettlementFields } from '@/sync/wire'
 import { db } from './db'
 import { fallbackCategoryId } from './seed'
 import {
@@ -173,6 +175,7 @@ export async function addSharedExpense(input: SharedExpenseInput): Promise<strin
       note,
       date: input.date,
       expenseId,
+      authorSide: MY_SIDE,
       createdAt: now,
       updatedAt: now,
     })
@@ -234,11 +237,12 @@ export async function updateSharedExpense(
   })
 }
 
-export async function deleteSharedExpense(tabId: string): Promise<void> {
-  await db.transaction('rw', db.expenses, db.tabEntries, async () => {
+export async function deleteSharedExpense(tabId: string, at = Date.now()): Promise<void> {
+  await db.transaction('rw', [db.expenses, db.tabEntries, db.tabTombstones], async () => {
     const entry = await db.tabEntries.get(tabId)
     if (entry?.expenseId) await db.expenses.delete(entry.expenseId)
     await db.tabEntries.delete(tabId)
+    await putTombstone('entry', tabId, at)
   })
 }
 
@@ -251,19 +255,163 @@ export interface SettlementInput {
 
 export async function addSettlement(input: SettlementInput): Promise<string> {
   const id = newId()
+  const now = Date.now()
   await db.tabSettlements.add({
     id,
     amount: Math.max(0, Math.round(input.amount)),
     by: input.by,
     date: input.date,
     note: input.note.trim(),
-    createdAt: Date.now(),
+    authorSide: MY_SIDE,
+    createdAt: now,
+    updatedAt: now,
   })
   return id
 }
 
-export async function deleteSettlement(id: string): Promise<void> {
-  await db.tabSettlements.delete(id)
+export async function deleteSettlement(id: string, at = Date.now()): Promise<void> {
+  await db.transaction('rw', [db.tabSettlements, db.tabTombstones], async () => {
+    await db.tabSettlements.delete(id)
+    await putTombstone('settle', id, at)
+  })
+}
+
+/* ------------------------ shared tab · sync plumbing ---------------------- */
+// Deletes leave a tombstone so the other phone re-publishing its copy of a row
+// can't bring it back. They're pruned once both sides have certainly converged.
+
+export function tombstoneKey(kind: 'entry' | 'settle', recordId: string): string {
+  return `${kind}:${recordId}`
+}
+
+async function putTombstone(
+  kind: 'entry' | 'settle',
+  recordId: string,
+  deletedAt: number,
+): Promise<void> {
+  await db.tabTombstones.put({
+    id: tombstoneKey(kind, recordId),
+    kind,
+    recordId,
+    deletedAt,
+  })
+}
+
+/**
+ * Pick the local category for an incoming shared expense. Categories are local
+ * to each phone and never sync, so the wire carries only a *name*: match it
+ * case-insensitively (both apps start from the same seeded list), else leave it
+ * uncategorised. A category already chosen on this phone is never overwritten.
+ */
+async function resolveCategoryId(
+  cat: { name: string; emoji: string } | null,
+  current: string | null,
+): Promise<string | null> {
+  if (current && (await db.categories.get(current))) return current
+  const want = cat?.name.trim().toLowerCase()
+  if (!want) return null
+  const all = await db.categories.toArray()
+  const match =
+    all.find((c) => !c.isArchived && c.name.trim().toLowerCase() === want) ??
+    all.find((c) => c.name.trim().toLowerCase() === want)
+  return match?.id ?? null
+}
+
+/**
+ * Write a shared expense that arrived from the other phone. When `autoLog` is on
+ * this also maintains the paired consumption Expense for *our* share — which is
+ * what keeps the dashboard's cash view correct (see `computeDashboard`).
+ */
+export async function applyRemoteEntry(
+  id: string,
+  fields: LocalEntryFields,
+  category: { name: string; emoji: string } | null,
+  autoLog: boolean,
+): Promise<void> {
+  await db.transaction(
+    'rw',
+    [db.expenses, db.tabEntries, db.tabTombstones, db.categories],
+    async () => {
+      const existing = await db.tabEntries.get(id)
+      const categoryId = await resolveCategoryId(category, existing?.categoryId ?? null)
+      let expenseId = existing?.expenseId ?? null
+
+      if (autoLog && fields.yourShare > 0) {
+        if (expenseId && (await db.expenses.get(expenseId))) {
+          await db.expenses.update(expenseId, {
+            amount: fields.yourShare,
+            categoryId,
+            note: fields.note,
+            spentOn: fields.date,
+            updatedAt: fields.updatedAt,
+          })
+        } else {
+          expenseId = newId()
+          await db.expenses.add({
+            id: expenseId,
+            amount: fields.yourShare,
+            categoryId,
+            note: fields.note,
+            spentOn: fields.date,
+            tabEntryId: id,
+            createdAt: fields.createdAt,
+            updatedAt: fields.updatedAt,
+          })
+        }
+      } else if (expenseId) {
+        await db.expenses.delete(expenseId)
+        expenseId = null
+      }
+
+      await db.tabEntries.put({
+        id,
+        total: fields.total,
+        yourShare: fields.yourShare,
+        partnerShare: fields.partnerShare,
+        paidBy: fields.paidBy,
+        categoryId,
+        note: fields.note,
+        date: fields.date,
+        expenseId,
+        authorSide: fields.authorSide,
+        createdAt: fields.createdAt,
+        updatedAt: fields.updatedAt,
+      })
+      await db.tabTombstones.delete(tombstoneKey('entry', id))
+    },
+  )
+}
+
+export async function applyRemoteSettlement(
+  id: string,
+  fields: LocalSettlementFields,
+): Promise<void> {
+  await db.transaction('rw', [db.tabSettlements, db.tabTombstones], async () => {
+    await db.tabSettlements.put({
+      id,
+      amount: fields.amount,
+      by: fields.by,
+      date: fields.date,
+      note: fields.note,
+      authorSide: fields.authorSide,
+      createdAt: fields.createdAt,
+      updatedAt: fields.updatedAt,
+    })
+    await db.tabTombstones.delete(tombstoneKey('settle', id))
+  })
+}
+
+/** Honour a delete made on the other phone. */
+export async function applyRemoteDelete(
+  kind: 'entry' | 'settle',
+  id: string,
+  deletedAt: number,
+): Promise<void> {
+  if (kind === 'entry') {
+    await deleteSharedExpense(id, deletedAt)
+  } else {
+    await deleteSettlement(id, deletedAt)
+  }
 }
 
 /* -------------------------------- income -------------------------------- */

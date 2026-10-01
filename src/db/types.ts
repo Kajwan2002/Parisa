@@ -28,7 +28,15 @@ export interface Expense {
   updatedAt: number
 }
 
+/** Relative to *this* device — "you" is whoever holds the phone. */
 export type TabParty = 'you' | 'partner'
+
+/**
+ * Absolute identity, fixed per build variant (Blossom = 'her', Midnight =
+ * 'him'). `TabParty` is relative and must never go over the wire; `Side` is what
+ * the two phones agree on. See `src/sync/side.ts`.
+ */
+export type Side = 'her' | 'him'
 
 /** One shared purchase that created a debt between the two of you. */
 export interface TabEntry {
@@ -42,6 +50,8 @@ export interface TabEntry {
   date: DateStr
   /** the linked consumption Expense for `yourShare` (null when yourShare is 0) */
   expenseId: string | null
+  /** which phone typed this in; undefined on rows written before sync existed */
+  authorSide?: Side
   createdAt: number
   updatedAt: number
 }
@@ -53,7 +63,40 @@ export interface TabSettlement {
   by: TabParty // who handed over the money
   date: DateStr
   note: string
+  authorSide?: Side
   createdAt: number
+  updatedAt: number
+}
+
+/**
+ * Remembers that a tab row was deleted here, so the other phone re-publishing
+ * its copy can't resurrect it. Pruned once both sides have certainly converged.
+ */
+export interface TabTombstone {
+  /** `${kind}:${recordId}` — entries and settlements can't collide */
+  id: string
+  kind: 'entry' | 'settle'
+  recordId: string
+  deletedAt: number
+}
+
+/** Shared-tab sync pairing + cursor. Single row; absent means "not paired". */
+export interface SyncState {
+  id: 'sync'
+  /** the secret gist holding both sides' encrypted ledger files */
+  gistId: string
+  /** GitHub PAT, `gist` scope only — never leaves the device except to GitHub */
+  token: string
+  /** base64url AES-GCM key; the server only ever sees ciphertext */
+  key: string
+  /** ETag of the last read, so polling costs no rate limit (304s are free) */
+  etag: string | null
+  /** hash of the slice we last uploaded, to skip no-op pushes */
+  pushedHash: string | null
+  lastPulledAt: number | null
+  lastPushedAt: number | null
+  lastError: string | null
+  pairedAt: number
 }
 
 export type RecurUnit = 'week' | 'month'
@@ -100,6 +143,12 @@ export interface Settings {
   themeAccent: string
   /** name of the person you share a tab with; '' → shown as "Partner" */
   partnerName: string
+  /**
+   * When a shared expense arrives from the other phone, also log your own share
+   * as an expense here (so History/Budgets see it and the dashboard's cash view
+   * stays correct). Off = the entry only moves the tab.
+   */
+  tabAutoLogShare: boolean
   seeded: boolean
   lastBackupAt: number | null
   createdAt: number
@@ -112,6 +161,7 @@ export const DEFAULT_SETTINGS: Omit<Settings, 'createdAt'> = {
   overallMonthlyBudget: null,
   themeAccent: '',
   partnerName: '',
+  tabAutoLogShare: true,
   seeded: false,
   lastBackupAt: null,
 }
