@@ -185,7 +185,9 @@ export function DashboardPage() {
               items={summary.byCategory.slice(0, 6)}
               currency={currency}
               onSelect={(id) =>
-                navigate(`/history?month=${monthKey}${id ? `&cat=${id}` : ''}`)
+                // 'none' rather than dropping the param, so tapping Uncategorised
+                // filters to it instead of showing everything
+                navigate(`/history?month=${monthKey}&cat=${id ?? 'none'}`)
               }
             />
             {summary.settlementNet !== 0 && (
