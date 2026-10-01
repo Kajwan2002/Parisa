@@ -9,6 +9,7 @@ import { BudgetsPage } from '@/features/budgets/BudgetsPage'
 import { CategoriesPage } from '@/features/categories/CategoriesPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { ExpenseEditorProvider, useExpenseEditor } from '@/features/expenses/ExpenseEditorProvider'
+import { CategoryMonthPage } from '@/features/history/CategoryMonthPage'
 import { HistoryPage } from '@/features/history/HistoryPage'
 import { IncomePage } from '@/features/income/IncomePage'
 import { InsightsPage } from '@/features/insights/InsightsPage'
@@ -61,6 +62,7 @@ function Shell() {
       <Routes>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/history" element={<HistoryPage />} />
+        <Route path="/history/category/:catId" element={<CategoryMonthPage />} />
         <Route path="/insights" element={<InsightsPage />} />
         <Route path="/income" element={<IncomePage />} />
         <Route path="/budgets" element={<BudgetsPage />} />

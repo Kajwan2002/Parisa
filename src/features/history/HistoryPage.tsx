@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { BarChart } from '@/components/BarChart'
 import { Card, SectionTitle } from '@/components/Card'
 import { DonutChart } from '@/components/DonutChart'
@@ -18,7 +18,6 @@ import {
 import { formatMoney } from '@/lib/money'
 import {
   useActiveTheme,
-  useCategoryMap,
   useMonthExpenses,
   useMonthSummary,
   useSettings,
@@ -26,40 +25,22 @@ import {
 } from '@/db/queries'
 import { CategoryStatList } from '@/features/dashboard/CategoryStatList'
 import { ExpenseList } from '@/features/expenses/ExpenseList'
+import { categoryMonthPath } from './CategoryMonthPage'
 
 type Mode = 'month' | 'year'
 
-/** `?cat=` value standing for "expenses with no category" */
-const UNCATEGORISED = 'none'
-
 export function HistoryPage() {
-  const [params, setParams] = useSearchParams()
+  const navigate = useNavigate()
+  const [params] = useSearchParams()
   const settings = useSettings()
   const currency = settings?.currency ?? 'EUR'
 
   const [mode, setMode] = useState<Mode>('month')
   const [monthKey, setMonthKey] = useState(params.get('month') || currentMonthKey())
   const [yearKey, setYearKey] = useState(currentYearKey())
-  const catFilter = params.get('cat')
-
-  const clearFilter = () => {
-    const next = new URLSearchParams(params)
-    next.delete('cat')
-    setParams(next, { replace: true })
-  }
-
-  // Tapping a category in the breakdown filters the list below to that
-  // category for the month on screen; tapping it again clears the filter.
-  // `null` is a real choice (uncategorised), so it needs its own token rather
-  // than meaning "no filter".
-  const selectCategory = (id: string | null) => {
-    const token = id ?? UNCATEGORISED
-    const next = new URLSearchParams(params)
-    if (catFilter === token) next.delete('cat')
-    else next.set('cat', token)
-    next.set('month', monthKey)
-    setParams(next, { replace: true })
-  }
+  // Tapping a category opens its own screen for the month on show, rather than
+  // filtering the list further down the page where it's easy to miss.
+  const openCategory = (id: string | null) => navigate(categoryMonthPath(id, monthKey))
 
   return (
     <Screen title="History">
@@ -76,9 +57,7 @@ export function HistoryPage() {
         <MonthView
           monthKey={monthKey}
           currency={currency}
-          catFilter={catFilter}
-          onClearFilter={clearFilter}
-          onSelectCategory={selectCategory}
+          onSelectCategory={openCategory}
           onPrev={() => setMonthKey((k) => shiftMonth(k, -1))}
           onNext={() => setMonthKey((k) => shiftMonth(k, 1))}
         />
@@ -101,47 +80,19 @@ export function HistoryPage() {
 function MonthView({
   monthKey,
   currency,
-  catFilter,
-  onClearFilter,
   onSelectCategory,
   onPrev,
   onNext,
 }: {
   monthKey: string
   currency: string
-  catFilter: string | null
-  onClearFilter: () => void
   onSelectCategory: (categoryId: string | null) => void
   onPrev: () => void
   onNext: () => void
 }) {
   const summary = useMonthSummary(monthKey)
   const expenses = useMonthExpenses(monthKey)
-  const catMap = useCategoryMap()
   const t = useActiveTheme()
-
-  const listRef = useRef<HTMLDivElement>(null)
-
-  const filtered = useMemo(() => {
-    const all = expenses ?? []
-    if (!catFilter) return all
-    const want = catFilter === UNCATEGORISED ? null : catFilter
-    return all.filter((e) => e.categoryId === want)
-  }, [expenses, catFilter])
-
-  const filteredTotal = useMemo(() => filtered.reduce((n, e) => n + e.amount, 0), [filtered])
-
-  const filterName = !catFilter
-    ? null
-    : catFilter === UNCATEGORISED
-      ? 'Uncategorised'
-      : (catMap?.get(catFilter)?.name ?? 'Category')
-
-  const pickCategory = (id: string | null) => {
-    onSelectCategory(id)
-    // bring the transactions into view — the breakdown sits above them
-    listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
 
   const slices = useMemo(
     () =>
@@ -191,46 +142,22 @@ function MonthView({
             <CategoryStatList
               items={summary!.byCategory}
               currency={currency}
-              onSelect={pickCategory}
+              onSelect={onSelectCategory}
             />
           </Card>
         </section>
       )}
 
-      <section ref={listRef} className="scroll-mt-4">
-        <div className="mb-1 flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <SectionTitle className="truncate">{filterName ?? 'All expenses'}</SectionTitle>
-            {catFilter && (
-              <p className="px-1 text-xs font-semibold text-ink-faint">
-                {formatMoney(filteredTotal, currency, { compact: true })} ·{' '}
-                {filtered.length === 1 ? '1 expense' : `${filtered.length} expenses`} in{' '}
-                {monthLabelNoYear(monthKey)}
-              </p>
-            )}
-          </div>
-          {catFilter && (
-            <button
-              type="button"
-              onClick={onClearFilter}
-              className="shrink-0 rounded-full bg-blush px-3 py-1 text-xs font-bold text-rose-deep"
-            >
-              Clear ✕
-            </button>
-          )}
-        </div>
-        {filtered.length > 0 ? (
-          <ExpenseList expenses={filtered} currency={currency} />
+      <section>
+        <SectionTitle className="mb-1">All expenses</SectionTitle>
+        {(expenses ?? []).length > 0 ? (
+          <ExpenseList expenses={expenses ?? []} currency={currency} />
         ) : (
           <Card>
             <EmptyState
               emoji={t.emptyIcon.history}
               title="Nothing here"
-              hint={
-                filterName
-                  ? `No ${filterName} expenses in ${monthLabelNoYear(monthKey)}.`
-                  : 'No expenses for this period.'
-              }
+              hint="No expenses for this period."
             />
           </Card>
         )}

@@ -18,6 +18,7 @@ import {
 import { cheer } from '@/theme/apply'
 import { useExpenseEditor } from '@/features/expenses/ExpenseEditorProvider'
 import { ExpenseList } from '@/features/expenses/ExpenseList'
+import { categoryMonthPath } from '@/features/history/CategoryMonthPage'
 import { CategoryStatList } from './CategoryStatList'
 
 export function DashboardPage() {
@@ -184,11 +185,7 @@ export function DashboardPage() {
             <CategoryStatList
               items={summary.byCategory.slice(0, 6)}
               currency={currency}
-              onSelect={(id) =>
-                // 'none' rather than dropping the param, so tapping Uncategorised
-                // filters to it instead of showing everything
-                navigate(`/history?month=${monthKey}&cat=${id ?? 'none'}`)
-              }
+              onSelect={(id) => navigate(categoryMonthPath(id, monthKey))}
             />
             {summary.settlementNet !== 0 && (
               <button
