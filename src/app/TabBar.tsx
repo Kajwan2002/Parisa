@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/cn'
+import { usePlansSummary } from '@/db/queries'
 
 interface TabBarProps {
   onAdd: () => void
@@ -41,23 +42,44 @@ export function TabBar({ onAdd }: TabBarProps) {
   )
 }
 
+const PLAN_R = 8
+const PLAN_C = 2 * Math.PI * PLAN_R
+
+/**
+ * The plans icon is a live progress ring, filling clockwise as what you owe gets
+ * paid off, with a dot on it while something is overdue. Three states:
+ * no plans at all is a plain circle, anything part-paid is a part ring, and
+ * everything paid off closes it completely.
+ */
 function PlanIcon({ active }: { active: boolean }) {
+  const plans = usePlansSummary()
+  const progress = plans?.progress ?? 0
+  const overdue = (plans?.overdueCount ?? 0) > 0
+
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
       <circle
         cx="12"
         cy="12"
-        r="8"
+        r={PLAN_R}
         stroke="currentColor"
         strokeWidth={active ? 2.5 : 2}
-        opacity={active ? 0.3 : 0.45}
+        opacity={active ? 0.3 : 0.25}
       />
-      <path
-        d="M12 4a8 8 0 0 1 8 8"
-        stroke="currentColor"
-        strokeWidth={active ? 2.8 : 2.2}
-        strokeLinecap="round"
-      />
+      {progress > 0 && (
+        <circle
+          cx="12"
+          cy="12"
+          r={PLAN_R}
+          stroke="currentColor"
+          strokeWidth={active ? 2.8 : 2.2}
+          strokeLinecap="round"
+          strokeDasharray={`${PLAN_C * progress} ${PLAN_C}`}
+          transform="rotate(-90 12 12)"
+          style={{ transition: 'stroke-dasharray 0.4s ease' }}
+        />
+      )}
+      {overdue && <circle cx="19.5" cy="4.5" r="3" fill="var(--color-over)" />}
     </svg>
   )
 }

@@ -210,8 +210,22 @@ export function usePlan(id: string | null): PlanView | undefined | null {
 }
 
 export interface PlansSummary {
+  /** plans still being paid off */
   count: number
+  /** whether any plan exists at all, finished ones included */
+  anyPlans: boolean
+  /** what is still owed across the unfinished plans */
   remaining: number
+  /**
+   * Paid / total / progress span **every** plan, finished ones included. Over
+   * only the unfinished ones the ring would fall backwards the moment you
+   * cleared one: paying a plan's last installment drops it out of the set and
+   * leaves the untouched plans behind. Counting finished plans keeps the ring
+   * moving one way — forward, as you pay.
+   */
+  paid: number
+  total: number
+  progress: number
   overdueCount: number
   overdueAmount: number
   /** the soonest unpaid installment across every plan */
@@ -221,14 +235,21 @@ export interface PlansSummary {
 /** Totals for the dashboard nudge. */
 export function usePlansSummary(): PlansSummary | undefined {
   return useLiveQuery(async () => {
-    const views = (await planViews()).filter((v) => !v.isComplete)
+    const all = await planViews()
+    const views = all.filter((v) => !v.isComplete)
     // open plans have nothing due, so they never drive the nudge — they still
     // count toward what is left to pay overall
     const soonest = views
       .filter((v) => v.kind === 'fixed' && v.nextDue)
       .sort((a, b) => a.nextDue!.dueOn.localeCompare(b.nextDue!.dueOn))[0]
+    const paid = all.reduce((n, v) => n + Math.min(v.paid, v.plan.total), 0)
+    const total = all.reduce((n, v) => n + v.plan.total, 0)
     return {
       count: views.length,
+      anyPlans: all.length > 0,
+      paid,
+      total,
+      progress: total > 0 ? Math.min(1, paid / total) : 0,
       remaining: views.reduce((n, v) => n + v.remaining, 0),
       overdueCount: views.reduce((n, v) => n + v.overdueCount, 0),
       overdueAmount: views.reduce((n, v) => n + v.overdueAmount, 0),
