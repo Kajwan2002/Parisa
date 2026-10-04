@@ -5,12 +5,13 @@ import { EmptyState } from '@/components/EmptyState'
 import { Ring } from '@/components/Ring'
 import { Screen } from '@/components/Screen'
 import { cn } from '@/lib/cn'
-import { currentMonthKey, monthLabel, monthLabelNoYear, shiftMonth } from '@/lib/dates'
+import { currentMonthKey, monthLabel, monthLabelNoYear, shiftMonth, shortDate, todayStr } from '@/lib/dates'
 import { formatMoney } from '@/lib/money'
 import {
   useActiveTheme,
   useDashboard,
   useMonthExpenses,
+  usePlansSummary,
   useSettings,
   useTabActive,
   useTabSummary,
@@ -30,6 +31,7 @@ export function DashboardPage() {
   const monthExpenses = useMonthExpenses(monthKey)
   const tab = useTabSummary()
   const tabActive = useTabActive()
+  const plans = usePlansSummary()
   const t = useActiveTheme()
   const currency = settings?.currency ?? 'EUR'
 
@@ -121,6 +123,43 @@ export function DashboardPage() {
           </button>
         )}
       </Card>
+
+      {/* installments needing attention */}
+      {plans && plans.next && (
+        <button
+          type="button"
+          onClick={() => navigate(`/plans/${plans.next!.planId}`)}
+          className="flex items-center gap-3 rounded-3xl bg-surface px-5 py-4 text-left shadow-card active:opacity-80"
+        >
+          <span
+            className={cn(
+              'grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-lg',
+              plans.overdueCount > 0 ? 'bg-over/20' : 'bg-blush',
+            )}
+          >
+            📄
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold text-ink-soft">
+              {plans.overdueCount > 0
+                ? plans.overdueCount === 1
+                  ? 'installment overdue'
+                  : `${plans.overdueCount} installments overdue`
+                : plans.next.dueOn <= todayStr()
+                  ? 'installment due today'
+                  : 'next installment'}
+            </p>
+            <p className="truncate font-extrabold text-ink">
+              {formatMoney(plans.next.amount, currency, { compact: true })} · {plans.next.name}
+            </p>
+            <p className="truncate text-xs font-semibold text-ink-faint">
+              {plans.overdueCount > 0 ? 'since' : 'due'} {shortDate(plans.next.dueOn)} ·{' '}
+              {formatMoney(plans.remaining, currency, { compact: true })} left overall
+            </p>
+          </div>
+          <span className="shrink-0 text-ink-faint">›</span>
+        </button>
+      )}
 
       {/* shared tab */}
       {tabActive && tab && (

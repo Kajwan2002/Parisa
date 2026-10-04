@@ -9,6 +9,7 @@ interface TabBarProps {
 const tabs = [
   { to: '/', label: 'Home', icon: HomeIcon, end: true },
   { to: '/history', label: 'History', icon: HistoryIcon },
+  { to: '/plans', label: 'Plans', icon: PlanIcon },
   { to: '/insights', label: 'Insights', icon: SparkIcon },
   { to: '/settings', label: 'Settings', icon: GearIcon },
 ]
@@ -17,7 +18,7 @@ export function TabBar({ onAdd }: TabBarProps) {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-center pb-[env(safe-area-inset-bottom)]">
       <div className="pointer-events-auto mx-3 mb-3 flex w-full max-w-md items-center justify-around rounded-[1.75rem] bg-surface/95 px-2 py-2 shadow-soft backdrop-blur">
-        {tabs.slice(0, 2).map((t) => (
+        {tabs.slice(0, 3).map((t) => (
           <Tab key={t.to} {...t} />
         ))}
 
@@ -32,11 +33,32 @@ export function TabBar({ onAdd }: TabBarProps) {
           </svg>
         </button>
 
-        {tabs.slice(2).map((t) => (
+        {tabs.slice(3).map((t) => (
           <Tab key={t.to} {...t} />
         ))}
       </div>
     </nav>
+  )
+}
+
+function PlanIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle
+        cx="12"
+        cy="12"
+        r="8"
+        stroke="currentColor"
+        strokeWidth={active ? 2.5 : 2}
+        opacity={active ? 0.3 : 0.45}
+      />
+      <path
+        d="M12 4a8 8 0 0 1 8 8"
+        stroke="currentColor"
+        strokeWidth={active ? 2.8 : 2.2}
+        strokeLinecap="round"
+      />
+    </svg>
   )
 }
 

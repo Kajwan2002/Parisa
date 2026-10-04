@@ -13,6 +13,8 @@ import { CategoryMonthPage } from '@/features/history/CategoryMonthPage'
 import { HistoryPage } from '@/features/history/HistoryPage'
 import { IncomePage } from '@/features/income/IncomePage'
 import { InsightsPage } from '@/features/insights/InsightsPage'
+import { PlanDetailPage } from '@/features/plans/PlanDetailPage'
+import { PlansPage } from '@/features/plans/PlansPage'
 import { RecurringPage } from '@/features/recurring/RecurringPage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { TabPage } from '@/features/tab/TabPage'
@@ -69,6 +71,8 @@ function Shell() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/categories" element={<CategoriesPage />} />
         <Route path="/recurring" element={<RecurringPage />} />
+        <Route path="/plans" element={<PlansPage />} />
+        <Route path="/plans/:planId" element={<PlanDetailPage />} />
         <Route path="/tab" element={<TabPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

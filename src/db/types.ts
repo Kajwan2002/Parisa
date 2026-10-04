@@ -24,6 +24,8 @@ export interface Expense {
   recurringId?: string | null
   /** set when this expense is the "your share" of a shared (split) expense */
   tabEntryId?: string | null
+  /** set when this expense was logged by paying an installment */
+  planPaymentId?: string | null
   createdAt: number
   updatedAt: number
 }
@@ -118,6 +120,52 @@ export interface Recurring {
   lastChargedOn: DateStr | null
   createdAt: number
   updatedAt: number
+}
+
+/* ----------------------------- installments ----------------------------- */
+
+/**
+ * How a plan is paid off:
+ *   'fixed' — a set number of installments on set dates (a purchase on terms)
+ *   'open'  — a total owed with no schedule at all, paid whenever suits
+ */
+export type PlanKind = 'fixed' | 'open'
+
+/**
+ * A fixed amount being paid off over time — a bill spread into installments, or
+ * something bought on terms. Unlike `Recurring` this has an end: it is a debt
+ * that shrinks, so what matters is how much is left, not what it costs a month.
+ */
+export interface Plan {
+  id: string
+  /** what it's for, e.g. "Heating bill 2025" */
+  name: string
+  total: number // cents — the whole amount owed
+  categoryId: string | null
+  /** missing on rows written before open plans existed, so treat as 'fixed' */
+  kind?: PlanKind
+  /** how many scheduled installments the total is split into ('fixed' only) */
+  count: number
+  /** one installment every `everyCount` `everyUnit`s ('fixed' only) */
+  everyCount: number
+  everyUnit: RecurUnit
+  /** when the first installment is due; for 'open' plans, when it started */
+  startDate: DateStr
+  note: string
+  createdAt: number
+  updatedAt: number
+}
+
+/** Money actually handed over against a plan. */
+export interface PlanPayment {
+  id: string
+  planId: string
+  amount: number // cents
+  paidOn: DateStr
+  /** the expense this logged, so the money shows in the rest of the app */
+  expenseId: string | null
+  note: string
+  createdAt: number
 }
 
 export type IncomeSource = string // "Salary" | "Parents" | "Gift" | custom

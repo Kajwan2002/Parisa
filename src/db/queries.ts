@@ -11,6 +11,7 @@ import {
   type YearKey,
 } from '@/lib/dates'
 import { onSyncActivity, statusOf, type SyncStatus } from '@/sync/engine'
+import { buildPlanView, type PlanView } from './plans'
 import { THEME } from '@/theme/themes'
 import { db } from './db'
 import { getSettings } from './repo'
@@ -175,6 +176,72 @@ async function computeTabSummary(): Promise<TabSummary> {
 
 export function useTabSummary(): TabSummary | undefined {
   return useLiveQuery(() => computeTabSummary(), [])
+}
+
+/* ----------------------------- installments ----------------------------- */
+
+async function planViews(): Promise<PlanView[]> {
+  const [plans, payments] = await Promise.all([
+    db.plans.toArray(),
+    db.planPayments.toArray(),
+  ])
+  return plans
+    .map((p) => buildPlanView(p, payments))
+    .sort((a, b) => {
+      // unfinished first, then whichever is due soonest
+      if (a.isComplete !== b.isComplete) return a.isComplete ? 1 : -1
+      const ad = a.nextDue?.dueOn ?? '9999-99-99'
+      const bd = b.nextDue?.dueOn ?? '9999-99-99'
+      return ad.localeCompare(bd) || a.plan.createdAt - b.plan.createdAt
+    })
+}
+
+export function usePlans(): PlanView[] | undefined {
+  return useLiveQuery(() => planViews(), [])
+}
+
+export function usePlan(id: string | null): PlanView | undefined | null {
+  return useLiveQuery(async () => {
+    if (!id) return null
+    const plan = await db.plans.get(id)
+    if (!plan) return null
+    return buildPlanView(plan, await db.planPayments.where('planId').equals(id).toArray())
+  }, [id])
+}
+
+export interface PlansSummary {
+  count: number
+  remaining: number
+  overdueCount: number
+  overdueAmount: number
+  /** the soonest unpaid installment across every plan */
+  next: { planId: string; name: string; dueOn: string; amount: number } | null
+}
+
+/** Totals for the dashboard nudge. */
+export function usePlansSummary(): PlansSummary | undefined {
+  return useLiveQuery(async () => {
+    const views = (await planViews()).filter((v) => !v.isComplete)
+    // open plans have nothing due, so they never drive the nudge — they still
+    // count toward what is left to pay overall
+    const soonest = views
+      .filter((v) => v.kind === 'fixed' && v.nextDue)
+      .sort((a, b) => a.nextDue!.dueOn.localeCompare(b.nextDue!.dueOn))[0]
+    return {
+      count: views.length,
+      remaining: views.reduce((n, v) => n + v.remaining, 0),
+      overdueCount: views.reduce((n, v) => n + v.overdueCount, 0),
+      overdueAmount: views.reduce((n, v) => n + v.overdueAmount, 0),
+      next: soonest
+        ? {
+            planId: soonest.plan.id,
+            name: soonest.plan.name,
+            dueOn: soonest.nextDue!.dueOn,
+            amount: soonest.nextDue!.amount - soonest.nextDue!.paid,
+          }
+        : null,
+    }
+  }, [])
 }
 
 /* ---------------------------- shared-tab sync ---------------------------- */

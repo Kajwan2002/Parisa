@@ -5,6 +5,8 @@ import type {
   Category,
   Expense,
   Income,
+  Plan,
+  PlanPayment,
   Recurring,
   Settings,
   TabEntry,
@@ -12,7 +14,7 @@ import type {
   TabTombstone,
 } from './types'
 
-const BACKUP_VERSION = 4
+const BACKUP_VERSION = 5
 
 export interface BackupFile {
   app: 'parisa'
@@ -23,6 +25,8 @@ export interface BackupFile {
     expenses: Expense[]
     income: Income[]
     recurring?: Recurring[]
+    plans?: Plan[]
+    planPayments?: PlanPayment[]
     tabEntries?: TabEntry[]
     tabSettlements?: TabSettlement[]
     tabTombstones?: TabTombstone[]
@@ -39,6 +43,8 @@ export async function buildBackup(): Promise<BackupFile> {
     expenses,
     income,
     recurring,
+    plans,
+    planPayments,
     tabEntries,
     tabSettlements,
     tabTombstones,
@@ -48,6 +54,8 @@ export async function buildBackup(): Promise<BackupFile> {
     db.expenses.toArray(),
     db.income.toArray(),
     db.recurring.toArray(),
+    db.plans.toArray(),
+    db.planPayments.toArray(),
     db.tabEntries.toArray(),
     db.tabSettlements.toArray(),
     db.tabTombstones.toArray(),
@@ -62,6 +70,8 @@ export async function buildBackup(): Promise<BackupFile> {
       expenses,
       income,
       recurring,
+      plans,
+      planPayments,
       tabEntries,
       tabSettlements,
       tabTombstones,
@@ -135,6 +145,8 @@ export async function importBackup(text: string): Promise<ImportResult> {
     expenses,
     income,
     recurring,
+    plans,
+    planPayments,
     tabEntries,
     tabSettlements,
     tabTombstones,
@@ -148,6 +160,8 @@ export async function importBackup(text: string): Promise<ImportResult> {
       db.expenses,
       db.income,
       db.recurring,
+      db.plans,
+      db.planPayments,
       db.tabEntries,
       db.tabSettlements,
       db.tabTombstones,
@@ -159,6 +173,8 @@ export async function importBackup(text: string): Promise<ImportResult> {
         db.expenses.clear(),
         db.income.clear(),
         db.recurring.clear(),
+        db.plans.clear(),
+        db.planPayments.clear(),
         db.tabEntries.clear(),
         db.tabSettlements.clear(),
         db.tabTombstones.clear(),
@@ -168,6 +184,8 @@ export async function importBackup(text: string): Promise<ImportResult> {
       if (expenses?.length) await db.expenses.bulkAdd(expenses)
       if (income?.length) await db.income.bulkAdd(income)
       if (recurring?.length) await db.recurring.bulkAdd(recurring)
+      if (plans?.length) await db.plans.bulkAdd(plans)
+      if (planPayments?.length) await db.planPayments.bulkAdd(planPayments)
       if (tabEntries?.length) await db.tabEntries.bulkAdd(tabEntries)
       if (tabSettlements?.length) await db.tabSettlements.bulkAdd(tabSettlements)
       if (tabTombstones?.length) await db.tabTombstones.bulkAdd(tabTombstones)
@@ -191,6 +209,8 @@ export async function wipeAll(): Promise<void> {
       db.expenses,
       db.income,
       db.recurring,
+      db.plans,
+      db.planPayments,
       db.tabEntries,
       db.tabSettlements,
       db.tabTombstones,
@@ -203,6 +223,8 @@ export async function wipeAll(): Promise<void> {
         db.expenses.clear(),
         db.income.clear(),
         db.recurring.clear(),
+        db.plans.clear(),
+        db.planPayments.clear(),
         db.tabEntries.clear(),
         db.tabSettlements.clear(),
         db.tabTombstones.clear(),

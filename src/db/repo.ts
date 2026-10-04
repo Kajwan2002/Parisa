@@ -115,6 +115,13 @@ export async function updateExpense(id: string, patch: Partial<ExpenseInput>): P
 
 export async function deleteExpense(id: string): Promise<void> {
   const e = await db.expenses.get(id)
+  if (e?.planPaymentId) {
+    // deleting the expense undoes the installment payment it recorded
+    const { detachPlanPayment } = await import('./plans')
+    await detachPlanPayment(e.planPaymentId)
+    await db.expenses.delete(id)
+    return
+  }
   if (e?.tabEntryId) {
     // deleting the consumption half of a shared expense — drop the tab entry too
     await deleteSharedExpense(e.tabEntryId)

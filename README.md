@@ -46,6 +46,35 @@ The variant is chosen by `VITE_VARIANT=treasury` at build time (see `vite.config
 There is no in-app theme switcher — each build is locked to its look. The deploy
 workflow builds both and publishes them together on one `git push`.
 
+## Installment plans
+
+A bill spread over time, or something bought on terms — a debt that shrinks,
+which is a different shape from a subscription that just recurs. Plans come in
+two kinds:
+
+- **Set installments** — a total, a number of installments and how often one
+  falls due. The schedule is derived from that, and the last installment absorbs
+  the rounding so the parts always add back up to the total exactly.
+- **Pay anytime** — a total owed with no schedule at all. Nothing can be due, so
+  nothing is ever late and it never appears in the dashboard nudge; it still
+  counts toward what is left to pay overall.
+
+Payments are recorded by hand rather than auto-logged — the point is to not
+forget to pay, which only works if marking it paid is a deliberate act. Each one
+also logs a normal expense dated the day it was paid, so the money shows on the
+dashboard and in History like any other spending.
+
+Payments fill the schedule oldest-first, so a lump sum settles several
+installments at once and a part payment leaves the rest of that one
+outstanding. The plan screen shows what is paid, what is left, when each
+installment fell due and when it was actually paid. The dashboard carries a card
+whenever something is due or overdue.
+
+Deleting stays consistent in every direction: undoing a payment removes the
+expense it logged, deleting that expense from the expense list withdraws the
+payment, and deleting a plan drops its payments while leaving already-logged
+expenses in the history.
+
 ## The running balance
 
 Months are not islands. Whatever is left at the end of one — or overdrawn —
@@ -118,6 +147,7 @@ Everything lives in one IndexedDB database via Dexie:
 - `expenses` — amount (integer cents), category, note, date, optional links
 - `income` — amount, source, date, `recurringMonthly`
 - `recurring` — subscription rules that auto-log as expenses
+- `plans` / `planPayments` — installment plans and what has been paid off
 - `tabEntries` / `tabSettlements` — the shared "running tab"
 - `tabTombstones` — tab rows deleted here, so sync can't bring them back
 - `syncState` — the tab-sync pairing (never included in a backup: it holds a token)
@@ -139,6 +169,7 @@ src/
     categories/   CRUD + inline "new category" form
     budgets/      overall + per-category budgets
     income/       salary / parents / gifts, recurring
+    plans/        installments: schedule, progress, payments
     history/      monthly & yearly views
     insights/     friendly stat cards
     recurring/    subscriptions that auto-log

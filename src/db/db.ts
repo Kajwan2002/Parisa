@@ -3,6 +3,8 @@ import type {
   Category,
   Expense,
   Income,
+  Plan,
+  PlanPayment,
   Recurring,
   Settings,
   SyncState,
@@ -19,6 +21,8 @@ export const db = new Dexie(import.meta.env.VITE_DB_NAME || 'parisa') as Dexie &
   expenses: EntityTable<Expense, 'id'>
   income: EntityTable<Income, 'id'>
   recurring: EntityTable<Recurring, 'id'>
+  plans: EntityTable<Plan, 'id'>
+  planPayments: EntityTable<PlanPayment, 'id'>
   tabEntries: EntityTable<TabEntry, 'id'>
   tabSettlements: EntityTable<TabSettlement, 'id'>
   tabTombstones: EntityTable<TabTombstone, 'id'>
@@ -62,6 +66,13 @@ db.version(4)
         if (s.updatedAt == null) s.updatedAt = s.createdAt ?? Date.now()
       })
   })
+
+// v5 — installment plans. Purely additive: two new stores, nothing existing is
+// touched or re-indexed, so upgrading cannot disturb data already on the phone.
+db.version(5).stores({
+  plans: 'id, startDate',
+  planPayments: 'id, planId, paidOn',
+})
 
 /** Ask the browser to keep our data (helps on iOS home-screen installs). */
 export async function requestPersistentStorage(): Promise<boolean> {
