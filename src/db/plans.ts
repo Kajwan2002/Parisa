@@ -7,13 +7,35 @@ import type { Plan, PlanKind, PlanPayment, RecurUnit } from './types'
 /* ------------------------------ the schedule ----------------------------- */
 
 /**
- * Split a total into whole-cent installments. Every installment is the same
- * except the last, which absorbs the rounding so the parts always add back up
+ * The amounts a plan is actually paid in. Two ways to get there:
+ *
+ *  - an even split of the total into `count` parts, where the last part absorbs
+ *    the rounding;
+ *  - a set amount charged each time (`perInstallment`), repeated until the
+ *    total runs out, where the last part is whatever is left.
+ *
+ * The second is how instalment sellers usually work — €119.83 is charged as
+ * 5 × €19.99 and then €19.88, not 6 × €19.97. Either way the parts add back up
  * to exactly the total.
  */
-export function installmentAmounts(total: number, count: number): number[] {
-  const n = Math.max(1, Math.round(count))
+export function installmentAmounts(
+  total: number,
+  count: number,
+  perInstallment?: number | null,
+): number[] {
   const whole = Math.max(0, Math.round(total))
+
+  const per = perInstallment ? Math.round(perInstallment) : 0
+  if (per > 0) {
+    if (per >= whole) return [whole]
+    const full = Math.floor(whole / per)
+    const rest = whole - full * per
+    const amounts = new Array<number>(full).fill(per)
+    if (rest > 0) amounts.push(rest)
+    return amounts
+  }
+
+  const n = Math.max(1, Math.round(count))
   const base = Math.floor(whole / n)
   const amounts = new Array<number>(n).fill(base)
   amounts[n - 1] = whole - base * (n - 1)
@@ -103,7 +125,7 @@ export function buildPlanView(plan: Plan, allPayments: PlanPayment[]): PlanView 
     }
   }
 
-  const amounts = installmentAmounts(plan.total, plan.count)
+  const amounts = installmentAmounts(plan.total, plan.count, plan.installmentAmount)
   const installments: Installment[] = amounts.map((amount, i) => ({
     number: i + 1,
     dueOn: installmentDate(plan, i),
@@ -168,6 +190,8 @@ export interface PlanInput {
   categoryId: string | null
   kind: PlanKind
   count: number
+  /** charge this much each time instead of splitting evenly; null = even split */
+  installmentAmount: number | null
   everyCount: number
   everyUnit: RecurUnit
   startDate: DateStr
@@ -175,12 +199,23 @@ export interface PlanInput {
 }
 
 function clean(input: PlanInput) {
+  const total = Math.max(0, Math.round(input.total))
+  const per =
+    input.installmentAmount && input.installmentAmount > 0
+      ? Math.round(input.installmentAmount)
+      : null
+  // when the amount is set the count follows from it; store the derived figure
+  // so the row never disagrees with its own schedule
+  const count = per
+    ? installmentAmounts(total, 1, per).length
+    : Math.min(600, Math.max(1, Math.round(input.count)))
   return {
     name: input.name.trim() || 'Installment plan',
-    total: Math.max(0, Math.round(input.total)),
+    total,
     categoryId: input.categoryId,
     kind: input.kind,
-    count: Math.min(600, Math.max(1, Math.round(input.count))),
+    count,
+    installmentAmount: per,
     everyCount: Math.max(1, Math.round(input.everyCount)),
     everyUnit: input.everyUnit,
     startDate: input.startDate,

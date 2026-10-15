@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Button } from '@/components/Button'
 import { CategoryGrid } from '@/components/CategoryGrid'
 import { Segmented } from '@/components/Segmented'
+import { MoneyField } from '@/components/MoneyField'
 import { MoneyKeypad } from '@/components/MoneyKeypad'
 import { useToast } from '@/components/Toast'
 import { cn } from '@/lib/cn'
@@ -43,6 +44,8 @@ export function PlanForm({
   const [name, setName] = useState(initial?.name ?? '')
   const [categoryId, setCategoryId] = useState<string | null>(initial?.categoryId ?? null)
   const [count, setCount] = useState(initial?.count ?? 10)
+  const [evenSplit, setEvenSplit] = useState(!initial?.installmentAmount)
+  const [perAmount, setPerAmount] = useState(initial?.installmentAmount ?? 0)
   const [everyCount, setEveryCount] = useState(initial?.everyCount ?? 1)
   const [unit, setUnit] = useState<RecurUnit>(initial?.everyUnit ?? 'month')
   const [startDate, setStartDate] = useState(initial?.startDate ?? todayStr())
@@ -51,10 +54,12 @@ export function PlanForm({
 
   const fixed = kind === 'fixed'
   const activeEvery = EVERY.find((e) => e.count === everyCount && e.unit === unit)
-  const per = fixed && total > 0 && count > 0 ? installmentAmounts(total, count) : []
+  const perInstallment = evenSplit ? null : perAmount
+  const per =
+    fixed && total > 0 ? installmentAmounts(total, count, perInstallment) : []
   const lastDue =
-    fixed && count > 0
-      ? installmentDate({ startDate, everyUnit: unit, everyCount }, count - 1)
+    per.length > 0
+      ? installmentDate({ startDate, everyUnit: unit, everyCount }, per.length - 1)
       : null
 
   if (creatingCat) {
@@ -88,6 +93,7 @@ export function PlanForm({
           categoryId,
           kind,
           count,
+          installmentAmount: perInstallment,
           everyCount,
           everyUnit: unit,
           startDate,
@@ -130,32 +136,60 @@ export function PlanForm({
       {fixed && (
         <>
           <div>
-            <p className="mb-2 px-1 text-xs font-bold text-ink-soft">Split into</p>
-            <div className="flex flex-wrap gap-2">
-              {COUNTS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setCount(c)}
-                  className={cn(
-                    'rounded-full px-3.5 py-2 text-sm font-bold transition',
-                    count === c ? 'bg-rose text-white' : 'bg-blush/60 text-ink-soft',
-                  )}
-                >
-                  {c}×
-                </button>
-              ))}
-              <input
-                type="number"
-                min={1}
-                max={600}
-                value={count}
-                onChange={(e) => setCount(Number(e.target.value) || 1)}
-                aria-label="Number of installments"
-                className="w-20 rounded-full bg-surface px-3 py-2 text-center text-sm font-bold text-ink shadow-card outline-none focus:ring-2 focus:ring-rose-soft"
-              />
-            </div>
+            <p className="mb-2 px-1 text-xs font-bold text-ink-soft">The payments</p>
+            <Segmented
+              options={[
+                { value: 'even', label: 'Split evenly' },
+                { value: 'amount', label: 'Set the amount' },
+              ]}
+              value={evenSplit ? 'even' : 'amount'}
+              onChange={(v) => setEvenSplit(v === 'even')}
+            />
           </div>
+
+          {evenSplit ? (
+            <div>
+              <p className="mb-2 px-1 text-xs font-bold text-ink-soft">Split into</p>
+              <div className="flex flex-wrap gap-2">
+                {COUNTS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setCount(c)}
+                    className={cn(
+                      'rounded-full px-3.5 py-2 text-sm font-bold transition',
+                      count === c ? 'bg-rose text-white' : 'bg-blush/60 text-ink-soft',
+                    )}
+                  >
+                    {c}×
+                  </button>
+                ))}
+                <input
+                  type="number"
+                  min={1}
+                  max={600}
+                  value={count}
+                  onChange={(e) => setCount(Number(e.target.value) || 1)}
+                  aria-label="Number of installments"
+                  className="w-20 rounded-full bg-surface px-3 py-2 text-center text-sm font-bold text-ink shadow-card outline-none focus:ring-2 focus:ring-rose-soft"
+                />
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p className="mb-2 px-1 text-xs font-bold text-ink-soft">Amount each time</p>
+              <MoneyField
+                cents={perAmount}
+                onChange={setPerAmount}
+                currency={currency}
+                placeholder="19.99"
+              />
+              <p className="mt-2 px-1 text-xs font-semibold text-ink-faint">
+                Charged until the total runs out. However many that takes, the last one is
+                whatever is left over.
+              </p>
+            </div>
+          )}
 
           <div>
             <p className="mb-2 px-1 text-xs font-bold text-ink-soft">One payment</p>
@@ -217,7 +251,7 @@ export function PlanForm({
 
       {per.length > 0 && (
         <p className="rounded-2xl bg-blush/50 px-4 py-3 text-sm font-semibold text-ink-soft">
-          {count}× {formatMoney(per[0], currency, { compact: true })}
+          {per.length}× {formatMoney(per[0], currency, { compact: true })}
           {per[per.length - 1] !== per[0] && (
             <> (last one {formatMoney(per[per.length - 1], currency, { compact: true })})</>
           )}

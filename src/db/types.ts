@@ -144,8 +144,15 @@ export interface Plan {
   categoryId: string | null
   /** missing on rows written before open plans existed, so treat as 'fixed' */
   kind?: PlanKind
-  /** how many scheduled installments the total is split into ('fixed' only) */
+  /** how many installments the total is split into ('fixed', even split) */
   count: number
+  /**
+   * Set when the lender charges a round figure each time rather than an even
+   * split — €19.99 a month until a €119.83 balance runs out. The number of
+   * installments follows from it, and the last one is whatever is left over.
+   * null means split `total` evenly into `count`.
+   */
+  installmentAmount?: number | null
   /** one installment every `everyCount` `everyUnit`s ('fixed' only) */
   everyCount: number
   everyUnit: RecurUnit

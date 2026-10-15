@@ -52,9 +52,12 @@ A bill spread over time, or something bought on terms — a debt that shrinks,
 which is a different shape from a subscription that just recurs. Plans come in
 two kinds:
 
-- **Set installments** — a total, a number of installments and how often one
-  falls due. The schedule is derived from that, and the last installment absorbs
-  the rounding so the parts always add back up to the total exactly.
+- **Set installments** — a total and how often a payment falls due. The amounts
+  come either from splitting the total evenly into a number of parts, or from a
+  set amount charged each time with however many installments that works out to.
+  The second is how instalment sellers usually work: €119.83 at €19.99 a month
+  is 5 × €19.99 and then €19.88, not 6 × €19.97. Either way the last part
+  absorbs the remainder, so the parts always add back up to the total exactly.
 - **Pay anytime** — a total owed with no schedule at all. Nothing can be due, so
   nothing is ever late and it never appears in the dashboard nudge; it still
   counts toward what is left to pay overall.

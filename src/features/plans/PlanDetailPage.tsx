@@ -73,7 +73,7 @@ export function PlanDetailPage() {
       subtitle={
         openEnded
           ? `${money(plan.total)} · pay anytime`
-          : `${money(plan.total)} · ${plan.count}× ${describePlanInterval(
+          : `${money(plan.total)} · ${installments.length}× ${describePlanInterval(
               plan.everyCount,
               plan.everyUnit,
             )}`
@@ -107,7 +107,7 @@ export function PlanDetailPage() {
             <p className="text-xs font-semibold text-ink-faint">
               {openEnded
                 ? `${Math.round(progress * 100)}% paid off`
-                : `${paidCount} of ${plan.count} paid`}
+                : `${paidCount} of ${installments.length} paid`}
             </p>
           </div>
         </Ring>
