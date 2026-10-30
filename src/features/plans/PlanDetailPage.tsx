@@ -6,7 +6,9 @@ import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { MoneyKeypad } from '@/components/MoneyKeypad'
 import { Ring } from '@/components/Ring'
 import { Screen } from '@/components/Screen'
+import { Segmented } from '@/components/Segmented'
 import { Sheet } from '@/components/Sheet'
+import { SplitSlider } from '@/components/SplitSlider'
 import { useToast } from '@/components/Toast'
 import { cn } from '@/lib/cn'
 import { withAlpha } from '@/lib/color'
@@ -21,6 +23,7 @@ import {
   updatePlan,
   type Installment,
 } from '@/db/plans'
+import type { TabParty } from '@/db/types'
 import { cheer } from '@/theme/apply'
 import { PlanForm } from './PlanForm'
 
@@ -63,6 +66,7 @@ export function PlanDetailPage() {
   const paidCount = installments.filter((i) => i.status === 'paid').length
   // track a faded version of the fill, so the unpaid part never reads as paid
   const ringColor = category?.color ?? '#e7a4c0'
+  const partner = settings?.partnerName?.trim() || 'Partner'
   // prefill what the schedule says is due; an open plan has no expected amount,
   // so it starts blank rather than making you clear the whole balance
   const suggested = nextDue ? nextDue.amount - nextDue.paid : 0
@@ -172,9 +176,11 @@ export function PlanDetailPage() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-bold text-ink">{shortDate(p.paidOn)}</p>
-                  {p.note && (
-                    <p className="truncate text-xs font-semibold text-ink-faint">{p.note}</p>
-                  )}
+                  <p className="truncate text-xs font-semibold text-ink-faint">
+                    {p.tabEntryId ? `split with ${partner}` : ''}
+                    {p.tabEntryId && p.note ? ' · ' : ''}
+                    {p.note}
+                  </p>
                 </div>
                 <span className="shrink-0 font-extrabold text-good tabular-nums">
                   {money(p.amount)}
@@ -195,8 +201,10 @@ export function PlanDetailPage() {
         onClose={() => setPaying(false)}
         suggested={suggested}
         currency={currency}
-        onSubmit={async (amount, paidOn, note) => {
-          await addPlanPayment(plan.id, { amount, paidOn, note })
+        partner={partner}
+        splitByDefault={!!plan.splitWithPartner}
+        onSubmit={async (amount, paidOn, note, yourShare, paidBy) => {
+          await addPlanPayment(plan.id, { amount, paidOn, note, yourShare, paidBy })
           setPaying(false)
           toast(cheer('Payment recorded 💕'))
         }}
@@ -332,17 +340,30 @@ function PaymentSheet({
   onClose,
   suggested,
   currency,
+  partner,
+  splitByDefault,
   onSubmit,
 }: {
   open: boolean
   onClose: () => void
   suggested: number
   currency: string
-  onSubmit: (amount: number, paidOn: string, note: string) => void
+  partner: string
+  splitByDefault: boolean
+  onSubmit: (
+    amount: number,
+    paidOn: string,
+    note: string,
+    yourShare: number | null,
+    paidBy: TabParty,
+  ) => void
 }) {
   const [amount, setAmount] = useState(suggested)
   const [paidOn, setPaidOn] = useState(todayStr())
   const [note, setNote] = useState('')
+  const [split, setSplit] = useState(splitByDefault)
+  const [paidBy, setPaidBy] = useState<TabParty>('you')
+  const [yourShare, setYourShare] = useState(Math.round(suggested / 2))
   const [seeded, setSeeded] = useState(false)
 
   // prefill with what's actually due, but let an edit stand
@@ -351,8 +372,15 @@ function PaymentSheet({
     setAmount(suggested)
     setPaidOn(todayStr())
     setNote('')
+    setSplit(splitByDefault)
+    setPaidBy('you')
+    setYourShare(Math.round(suggested / 2))
   }
   if (!open && seeded) setSeeded(false)
+
+  // keep the split halved as the amount is typed, until it is nudged by hand
+  const [touchedSplit, setTouchedSplit] = useState(false)
+  const effectiveShare = touchedSplit ? Math.min(yourShare, amount) : Math.round(amount / 2)
 
   return (
     <Sheet open={open} onClose={onClose} title="Record a payment">
@@ -361,10 +389,49 @@ function PaymentSheet({
         onSubmit={(e) => {
           e.preventDefault()
           if (amount <= 0) return
-          onSubmit(amount, paidOn, note)
+          onSubmit(amount, paidOn, note, split ? effectiveShare : null, paidBy)
         }}
       >
         <MoneyKeypad cents={amount} onChange={setAmount} currency={currency} />
+
+        <label className="flex items-center justify-between rounded-2xl bg-surface px-4 py-3 shadow-card">
+          <span className="font-bold text-ink">
+            Split with {partner}
+            <span className="block text-xs font-semibold text-ink-faint">
+              You paid it all; their share goes on the tab
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            checked={split}
+            onChange={(e) => setSplit(e.target.checked)}
+            className="ml-3 h-6 w-6 shrink-0 accent-[var(--color-rose)]"
+          />
+        </label>
+
+        {split && (
+          <Segmented
+            options={[
+              { value: 'you', label: 'You paid' },
+              { value: 'partner', label: `${partner} paid` },
+            ]}
+            value={paidBy}
+            onChange={(v) => setPaidBy(v as TabParty)}
+          />
+        )}
+
+        {split && (
+          <SplitSlider
+            total={amount}
+            yourShare={effectiveShare}
+            onChange={(v) => {
+              setTouchedSplit(true)
+              setYourShare(v)
+            }}
+            currency={currency}
+            partnerName={partner}
+          />
+        )}
 
         <label>
           <span className="mb-2 block px-1 text-xs font-bold text-ink-soft">Paid on</span>
@@ -387,8 +454,11 @@ function PaymentSheet({
         </label>
 
         <p className="px-1 text-xs font-semibold text-ink-faint">
-          This also logs an expense for the day you paid, so it shows up on your dashboard and in
-          History.
+          {!split
+            ? 'This also logs an expense for the day you paid, so it shows up on your dashboard and in History.'
+            : paidBy === 'you'
+              ? `The full amount counts as leaving your account, and ${partner}'s share goes on the shared tab as owed to you.`
+              : `${partner} paid this one, so nothing leaves your account — your share goes on the shared tab as owed to them.`}
         </p>
 
         <Button type="submit" full disabled={amount <= 0}>

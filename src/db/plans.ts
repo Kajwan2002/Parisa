@@ -1,8 +1,9 @@
 import { addMonths, addWeeks, format, parseISO } from 'date-fns'
 import { newId } from '@/lib/id'
 import { todayStr, type DateStr } from '@/lib/dates'
+import { addSharedExpense, deleteSharedExpense } from './repo'
 import { db } from './db'
-import type { Plan, PlanKind, PlanPayment, RecurUnit } from './types'
+import type { Plan, PlanKind, PlanPayment, RecurUnit, TabParty } from './types'
 
 /* ------------------------------ the schedule ----------------------------- */
 
@@ -192,6 +193,8 @@ export interface PlanInput {
   count: number
   /** charge this much each time instead of splitting evenly; null = even split */
   installmentAmount: number | null
+  /** default new payments on this plan to being split with your partner */
+  splitWithPartner: boolean
   everyCount: number
   everyUnit: RecurUnit
   startDate: DateStr
@@ -216,6 +219,7 @@ function clean(input: PlanInput) {
     kind: input.kind,
     count,
     installmentAmount: per,
+    splitWithPartner: !!input.splitWithPartner,
     everyCount: Math.max(1, Math.round(input.everyCount)),
     everyUnit: input.everyUnit,
     startDate: input.startDate,
@@ -250,6 +254,13 @@ export interface PaymentInput {
   amount: number
   paidOn: DateStr
   note: string
+  /**
+   * Split the payment: this much of it was yours to bear, the rest goes on the
+   * shared tab as theirs. null (or the whole amount) means it was all yours.
+   */
+  yourShare?: number | null
+  /** who actually handed over the money; only meaningful on a split payment */
+  paidBy?: TabParty
 }
 
 /**
@@ -261,43 +272,88 @@ export async function addPlanPayment(planId: string, input: PaymentInput): Promi
   const now = Date.now()
   const id = newId()
   const amount = Math.max(0, Math.round(input.amount))
+  const mine = input.yourShare == null ? amount : Math.max(0, Math.min(amount, Math.round(input.yourShare)))
+  const split = mine < amount
 
-  await db.transaction('rw', [db.plans, db.planPayments, db.expenses], async () => {
-    const plan = await db.plans.get(planId)
-    if (!plan) throw new Error('That plan no longer exists.')
+  await db.transaction(
+    'rw',
+    [db.plans, db.planPayments, db.expenses, db.tabEntries],
+    async () => {
+      const plan = await db.plans.get(planId)
+      if (!plan) throw new Error('That plan no longer exists.')
+      const note = input.note.trim() || plan.name
 
-    const expenseId = newId()
-    await db.expenses.add({
-      id: expenseId,
-      amount,
-      categoryId: plan.categoryId,
-      note: input.note.trim() || plan.name,
-      spentOn: input.paidOn,
-      planPaymentId: id,
-      createdAt: now,
-      updatedAt: now,
-    })
-    await db.planPayments.add({
-      id,
-      planId,
-      amount,
-      paidOn: input.paidOn,
-      expenseId,
-      note: input.note.trim(),
-      createdAt: now,
-    })
-  })
+      if (split) {
+        // Whoever paid, paid the installment in full, so the full amount left
+        // their account — the other half goes on the tab as money owed back.
+        const tabEntryId = await addSharedExpense({
+          total: amount,
+          yourShare: mine,
+          partnerShare: amount - mine,
+          paidBy: input.paidBy ?? 'you',
+          categoryId: plan.categoryId,
+          note,
+          date: input.paidOn,
+          planPaymentId: id,
+        })
+        const entry = await db.tabEntries.get(tabEntryId)
+        await db.planPayments.add({
+          id,
+          planId,
+          amount,
+          paidOn: input.paidOn,
+          expenseId: entry?.expenseId ?? null,
+          tabEntryId,
+          note: input.note.trim(),
+          createdAt: now,
+        })
+        return
+      }
+
+      const expenseId = newId()
+      await db.expenses.add({
+        id: expenseId,
+        amount,
+        categoryId: plan.categoryId,
+        note,
+        spentOn: input.paidOn,
+        planPaymentId: id,
+        createdAt: now,
+        updatedAt: now,
+      })
+      await db.planPayments.add({
+        id,
+        planId,
+        amount,
+        paidOn: input.paidOn,
+        expenseId,
+        tabEntryId: null,
+        note: input.note.trim(),
+        createdAt: now,
+      })
+    },
+  )
   return id
 }
 
 /** Undo a payment, removing the expense it logged. */
 export async function deletePlanPayment(id: string): Promise<void> {
-  await db.transaction('rw', [db.planPayments, db.expenses], async () => {
-    const payment = await db.planPayments.get(id)
-    if (!payment) return
-    if (payment.expenseId) await db.expenses.delete(payment.expenseId)
-    await db.planPayments.delete(id)
-  })
+  await db.transaction(
+    'rw',
+    [db.planPayments, db.expenses, db.tabEntries, db.tabTombstones],
+    async () => {
+      const payment = await db.planPayments.get(id)
+      if (!payment) return
+      if (payment.tabEntryId) {
+        // takes the expense with it, and tombstones the entry so the other
+        // phone cannot sync it back
+        await deleteSharedExpense(payment.tabEntryId)
+      } else if (payment.expenseId) {
+        await db.expenses.delete(payment.expenseId)
+      }
+      await db.planPayments.delete(id)
+    },
+  )
 }
 
 /** Drop a payment because the expense it logged was deleted by hand. */

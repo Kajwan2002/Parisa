@@ -62,6 +62,14 @@ two kinds:
   nothing is ever late and it never appears in the dashboard nudge; it still
   counts toward what is left to pay overall.
 
+A plan can be **split with your partner**. You pay each installment in full, so
+the whole amount counts as leaving your account, and their share goes onto the
+shared tab as money owed back to you — €19.99 paid becomes €10.00 of your own
+spending plus €9.99 on the tab. The plan itself still counts the full €19.99,
+because the debt being paid off is the whole one. Who actually handed over the money is a per-payment choice,
+so either of you can cover an installment. The tab entry syncs to their phone
+like any other.
+
 Payments are recorded by hand rather than auto-logged — the point is to not
 forget to pay, which only works if marking it paid is a deliberate act. Each one
 also logs a normal expense dated the day it was paid, so the money shows on the

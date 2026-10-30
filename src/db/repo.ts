@@ -115,15 +115,15 @@ export async function updateExpense(id: string, patch: Partial<ExpenseInput>): P
 
 export async function deleteExpense(id: string): Promise<void> {
   const e = await db.expenses.get(id)
+  // a split installment payment carries both links, so neither branch may
+  // short-circuit the other — otherwise one of them is left orphaned
   if (e?.planPaymentId) {
-    // deleting the expense undoes the installment payment it recorded
     const { detachPlanPayment } = await import('./plans')
     await detachPlanPayment(e.planPaymentId)
-    await db.expenses.delete(id)
-    return
   }
   if (e?.tabEntryId) {
-    // deleting the consumption half of a shared expense — drop the tab entry too
+    // deleting the consumption half of a shared expense drops the tab entry,
+    // and the expense along with it
     await deleteSharedExpense(e.tabEntryId)
     return
   }
@@ -140,6 +140,8 @@ export interface SharedExpenseInput {
   categoryId: string | null
   note: string
   date: string
+  /** set when this shared expense is also an installment payment */
+  planPaymentId?: string | null
 }
 
 function cleanShares(input: SharedExpenseInput) {
@@ -168,6 +170,7 @@ export async function addSharedExpense(input: SharedExpenseInput): Promise<strin
         note,
         spentOn: input.date,
         tabEntryId: tabId,
+        planPaymentId: input.planPaymentId ?? null,
         createdAt: now,
         updatedAt: now,
       })

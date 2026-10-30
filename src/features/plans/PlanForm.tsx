@@ -9,7 +9,7 @@ import { cn } from '@/lib/cn'
 import { shortDate, todayStr } from '@/lib/dates'
 import { formatMoney } from '@/lib/money'
 import { addCategory } from '@/db/repo'
-import { useCategories } from '@/db/queries'
+import { useCategories, useSettings } from '@/db/queries'
 import { installmentAmounts, installmentDate, planKind, type PlanInput } from '@/db/plans'
 import type { Plan, PlanKind, RecurUnit } from '@/db/types'
 import { CategoryForm } from '@/features/categories/CategoryForm'
@@ -38,6 +38,8 @@ export function PlanForm({
 }: PlanFormProps) {
   const toast = useToast()
   const categories = useCategories()
+  const settings = useSettings()
+  const partner = settings?.partnerName?.trim() || 'Partner'
 
   const [kind, setKind] = useState<PlanKind>(initial ? planKind(initial) : 'fixed')
   const [total, setTotal] = useState(initial?.total ?? 0)
@@ -50,6 +52,7 @@ export function PlanForm({
   const [unit, setUnit] = useState<RecurUnit>(initial?.everyUnit ?? 'month')
   const [startDate, setStartDate] = useState(initial?.startDate ?? todayStr())
   const [note, setNote] = useState(initial?.note ?? '')
+  const [split, setSplit] = useState(!!initial?.splitWithPartner)
   const [creatingCat, setCreatingCat] = useState(false)
 
   const fixed = kind === 'fixed'
@@ -94,6 +97,7 @@ export function PlanForm({
           kind,
           count,
           installmentAmount: perInstallment,
+          splitWithPartner: split,
           everyCount,
           everyUnit: unit,
           startDate,
@@ -238,6 +242,21 @@ export function PlanForm({
           onCreateNew={() => setCreatingCat(true)}
         />
       </div>
+
+      <label className="flex items-center justify-between rounded-2xl bg-surface px-4 py-3 shadow-card">
+        <span className="font-bold text-ink">
+          Split with {partner}
+          <span className="block text-xs font-semibold text-ink-faint">
+            You pay each installment in full and half of it goes on the shared tab
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          checked={split}
+          onChange={(e) => setSplit(e.target.checked)}
+          className="ml-3 h-6 w-6 shrink-0 accent-[var(--color-rose)]"
+        />
+      </label>
 
       <label>
         <span className="mb-2 block px-1 text-xs font-bold text-ink-soft">Note (optional)</span>

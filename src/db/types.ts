@@ -153,6 +153,8 @@ export interface Plan {
    * null means split `total` evenly into `count`.
    */
   installmentAmount?: number | null
+  /** default every payment on this plan to being split with your partner */
+  splitWithPartner?: boolean
   /** one installment every `everyCount` `everyUnit`s ('fixed' only) */
   everyCount: number
   everyUnit: RecurUnit
@@ -171,6 +173,8 @@ export interface PlanPayment {
   paidOn: DateStr
   /** the expense this logged, so the money shows in the rest of the app */
   expenseId: string | null
+  /** set when the payment was split — the tab entry carrying their share */
+  tabEntryId?: string | null
   note: string
   createdAt: number
 }
