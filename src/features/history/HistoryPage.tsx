@@ -18,6 +18,8 @@ import {
 import { formatMoney } from '@/lib/money'
 import {
   useActiveTheme,
+  useDashboard,
+  useMonthCash,
   useMonthExpenses,
   useMonthSummary,
   useSettings,
@@ -25,6 +27,7 @@ import {
 } from '@/db/queries'
 import { CategoryStatList } from '@/features/dashboard/CategoryStatList'
 import { ExpenseList } from '@/features/expenses/ExpenseList'
+import { CashList } from './CashList'
 import { categoryMonthPath } from './CategoryMonthPage'
 
 type Mode = 'month' | 'year'
@@ -90,8 +93,18 @@ function MonthView({
   onPrev: () => void
   onNext: () => void
 }) {
-  const summary = useMonthSummary(monthKey)
+  // "share" is what you consumed, "cash" is what actually moved through the
+  // account — the two differ wherever a bill was split or a debt settled
+  const [view, setView] = useState<'share' | 'cash'>('share')
+  const cashView = view === 'cash'
+
+  const consumption = useMonthSummary(monthKey)
+  const cash = useDashboard(monthKey)
+  const summary = cashView ? cash : consumption
   const expenses = useMonthExpenses(monthKey)
+  const cashRows = useMonthCash(monthKey)
+  const settings = useSettings()
+  const partner = settings?.partnerName?.trim() || 'Partner'
   const t = useActiveTheme()
 
   const slices = useMemo(
@@ -116,10 +129,19 @@ function MonthView({
         nextDisabled={monthKey >= currentMonthKey()}
       />
 
+      <Segmented
+        options={[
+          { value: 'share', label: 'My share' },
+          { value: 'cash', label: 'I paid' },
+        ]}
+        value={view}
+        onChange={(v) => setView(v as 'share' | 'cash')}
+      />
+
       <Card className="flex flex-col items-center gap-4 py-6">
         <DonutChart slices={slices} size={172} thickness={24}>
           <div>
-            <p className="text-xs font-bold text-ink-soft">spent</p>
+            <p className="text-xs font-bold text-ink-soft">{cashView ? 'paid out' : 'spent'}</p>
             <p className="text-2xl font-extrabold text-ink tabular-nums">
               {formatMoney(summary?.spent ?? 0, currency, { compact: true })}
             </p>
@@ -131,7 +153,10 @@ function MonthView({
             label="per day"
             value={formatMoney(Math.round(summary?.perDay ?? 0), currency, { compact: true })}
           />
-          <Stat label="expenses" value={String(summary?.expenseCount ?? 0)} />
+          <Stat
+            label={cashView ? 'payments' : 'expenses'}
+            value={String(cashView ? (cashRows?.length ?? 0) : (summary?.expenseCount ?? 0))}
+          />
         </div>
       </Card>
 
@@ -149,8 +174,22 @@ function MonthView({
       )}
 
       <section>
-        <SectionTitle className="mb-1">All expenses</SectionTitle>
-        {(expenses ?? []).length > 0 ? (
+        <SectionTitle className="mb-1">
+          {cashView ? 'What left your account' : 'All expenses'}
+        </SectionTitle>
+        {cashView ? (
+          (cashRows ?? []).length > 0 ? (
+            <CashList rows={cashRows ?? []} currency={currency} partner={partner} />
+          ) : (
+            <Card>
+              <EmptyState
+                emoji={t.emptyIcon.history}
+                title="Nothing here"
+                hint="No money moved this period."
+              />
+            </Card>
+          )
+        ) : (expenses ?? []).length > 0 ? (
           <ExpenseList expenses={expenses ?? []} currency={currency} />
         ) : (
           <Card>

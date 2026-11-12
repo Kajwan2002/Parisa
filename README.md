@@ -86,6 +86,22 @@ expense it logged, deleting that expense from the expense list withdraws the
 payment, and deleting a plan drops its payments while leaving already-logged
 expenses in the history.
 
+## Two views of a month
+
+History's month view has a **My share / I paid** switch. They answer different
+questions and both are true:
+
+- **My share** (the default) is consumption — what you actually used up. A €60
+  dinner split evenly is €30 to you whoever paid. This is what the category
+  breakdown, budgets and insights are built on.
+- **I paid** is cash — what moved through your account. The same dinner is €60
+  if you paid it and nothing at all if they did, settlements appear as money out
+  or back in, and an installment shows the full amount charged rather than your
+  half of it.
+
+The cash figures come from `useDashboard`, the same computation the dashboard
+ring uses, so the two can't disagree; `useMonthCash` builds the matching list.
+
 ## The running balance
 
 Months are not islands. Whatever is left at the end of one — or overdrawn —

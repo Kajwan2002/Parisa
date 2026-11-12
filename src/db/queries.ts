@@ -7,6 +7,7 @@ import {
   monthsBetween,
   monthsOfYear,
   shiftMonth,
+  type DateStr,
   type MonthKey,
   type YearKey,
 } from '@/lib/dates'
@@ -176,6 +177,79 @@ async function computeTabSummary(): Promise<TabSummary> {
 
 export function useTabSummary(): TabSummary | undefined {
   return useLiveQuery(() => computeTabSummary(), [])
+}
+
+/* ------------------------------- cash view ------------------------------- */
+
+/**
+ * One line of what actually moved through your account, as opposed to what you
+ * consumed. A shared bill you paid appears once at its full amount instead of
+ * as your half; one they paid does not appear at all, because no money of yours
+ * left; and settlements show up, because handing over cash is a real movement
+ * even though nothing was bought.
+ */
+export interface CashRow {
+  id: string
+  date: DateStr
+  label: string
+  categoryId: string | null
+  /** + money out of your account, − money in */
+  amount: number
+  kind: 'expense' | 'shared' | 'settlement'
+  /** on a shared row, how much of it was actually yours to bear */
+  yourShare?: number
+  /** on a shared row, the tab entry to open when tapped */
+  tabEntryId?: string
+}
+
+export function useMonthCash(monthKey: MonthKey): CashRow[] | undefined {
+  return useLiveQuery(async () => {
+    const [expenses, tabEntries, settlements, settings] = await Promise.all([
+      db.expenses.where('spentOn').startsWith(monthKey).toArray(),
+      db.tabEntries.where('date').startsWith(monthKey).toArray(),
+      db.tabSettlements.where('date').startsWith(monthKey).toArray(),
+      getSettings(),
+    ])
+    const partner = settings.partnerName.trim() || 'Partner'
+
+    const rows: CashRow[] = [
+      // everything you paid for on your own
+      ...expenses
+        .filter((e) => !e.tabEntryId)
+        .map((e) => ({
+          id: e.id,
+          date: e.spentOn,
+          label: e.note || 'Expense',
+          categoryId: e.categoryId,
+          amount: e.amount,
+          kind: 'expense' as const,
+        })),
+      // shared bills, at the amount that actually left your account
+      ...tabEntries
+        .filter((t) => t.paidBy === 'you')
+        .map((t) => ({
+          id: t.id,
+          date: t.date,
+          label: t.note || 'Shared expense',
+          categoryId: t.categoryId,
+          amount: t.total,
+          kind: 'shared' as const,
+          yourShare: t.yourShare,
+          tabEntryId: t.id,
+        })),
+      // money handed over or received to square the tab
+      ...settlements.map((x) => ({
+        id: x.id,
+        date: x.date,
+        label: x.by === 'you' ? `Paid ${partner}` : `${partner} paid you`,
+        categoryId: null,
+        amount: x.by === 'you' ? x.amount : -x.amount,
+        kind: 'settlement' as const,
+      })),
+    ]
+
+    return rows.sort((a, b) => b.date.localeCompare(a.date) || a.label.localeCompare(b.label))
+  }, [monthKey])
 }
 
 /* ----------------------------- installments ----------------------------- */
