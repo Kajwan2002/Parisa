@@ -155,6 +155,19 @@ export interface Plan {
   installmentAmount?: number | null
   /** default every payment on this plan to being split with your partner */
   splitWithPartner?: boolean
+  /**
+   * Your percentage of a split, 0–100, remembered so a plan you pay every month
+   * doesn't reset to half each time. null means payments aren't split.
+   * `splitWithPartner` is the older on/off form and reads as 50 when set.
+   */
+  splitYourPct?: number | null
+  /**
+   * Groups this plan under a card, e.g. "Credit card". Purchases on a card stay
+   * separate plans — each with its own schedule, payments and split — and the
+   * card is only a view that adds them up. Merging them into one balance would
+   * dissolve exactly the per-purchase detail a split needs.
+   */
+  cardName?: string | null
   /** one installment every `everyCount` `everyUnit`s ('fixed' only) */
   everyCount: number
   everyUnit: RecurUnit

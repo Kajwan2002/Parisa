@@ -2,18 +2,18 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/Button'
 import { Card, SectionTitle } from '@/components/Card'
-import { CategoryBadge } from '@/components/CategoryBadge'
 import { EmptyState } from '@/components/EmptyState'
 import { Ring } from '@/components/Ring'
 import { Screen } from '@/components/Screen'
 import { Sheet } from '@/components/Sheet'
 import { useToast } from '@/components/Toast'
 import { cn } from '@/lib/cn'
-import { withAlpha } from '@/lib/color'
 import { shortDate } from '@/lib/dates'
 import { formatMoney } from '@/lib/money'
 import { useActiveTheme, useCategoryMap, usePlans, useSettings } from '@/db/queries'
 import { addPlan, type PlanView } from '@/db/plans'
+import { cardTotals } from './CardPage'
+import { PlanRow } from './PlanRow'
 import { cheer } from '@/theme/apply'
 import { PlanForm } from './PlanForm'
 
@@ -27,8 +27,19 @@ export function PlansPage() {
   const currency = settings?.currency ?? 'EUR'
 
   const [adding, setAdding] = useState(false)
+  const partner = settings?.partnerName?.trim() || 'Partner'
 
   const open = (plans ?? []).filter((p) => !p.isComplete)
+
+  // purchases on a card are shown as the card, added up; everything else stands
+  // on its own. The plans themselves stay separate either way.
+  const cards = new Map<string, PlanView[]>()
+  const loose: PlanView[] = []
+  for (const v of open) {
+    const card = v.plan.cardName?.trim()
+    if (card) cards.set(card, [...(cards.get(card) ?? []), v])
+    else loose.push(v)
+  }
   const done = (plans ?? []).filter((p) => p.isComplete)
 
   const totalLeft = open.reduce((n, p) => n + p.remaining, 0)
@@ -90,11 +101,21 @@ export function PlansPage() {
         </Card>
       ) : (
         <div className="flex flex-col gap-2">
-          {open.map((v) => (
+          {[...cards.entries()].map(([name, members]) => (
+            <CardRow
+              key={name}
+              name={name}
+              members={members}
+              currency={currency}
+              onClick={() => navigate(`/plans/card/${encodeURIComponent(name)}`)}
+            />
+          ))}
+          {loose.map((v) => (
             <PlanRow
               key={v.plan.id}
               view={v}
               currency={currency}
+              partner={partner}
               category={v.plan.categoryId ? (catMap?.get(v.plan.categoryId) ?? null) : null}
               onClick={() => navigate(`/plans/${v.plan.id}`)}
             />
@@ -111,6 +132,7 @@ export function PlansPage() {
                 key={v.plan.id}
                 view={v}
                 currency={currency}
+                partner={partner}
                 category={v.plan.categoryId ? (catMap?.get(v.plan.categoryId) ?? null) : null}
                 onClick={() => navigate(`/plans/${v.plan.id}`)}
               />
@@ -134,64 +156,51 @@ export function PlansPage() {
   )
 }
 
-function PlanRow({
-  view,
+function CardRow({
+  name,
+  members,
   currency,
-  category,
   onClick,
 }: {
-  view: PlanView
+  name: string
+  members: PlanView[]
   currency: string
-  category: Parameters<typeof CategoryBadge>[0]['category']
   onClick: () => void
 }) {
-  const { plan, kind, paid, remaining, progress, nextDue, isComplete, overdueCount } = view
-  const color = category?.color ?? 'var(--color-rose)'
+  const totals = cardTotals(members)
   const money = (c: number) => formatMoney(c, currency, { compact: true })
-
-  const sub = isComplete
-    ? 'Paid off 🎉'
-    : kind === 'open'
-      ? `${money(paid)} paid · pay anytime`
-      : nextDue
-        ? nextDue.overdue
-          ? `${money(nextDue.amount - nextDue.paid)} overdue since ${shortDate(nextDue.dueOn)}`
-          : `${money(nextDue.amount - nextDue.paid)} due ${shortDate(nextDue.dueOn)}`
-        : 'No schedule'
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={cn(
-        'flex items-center gap-3 rounded-3xl bg-surface px-4 py-3 text-left shadow-card active:opacity-80',
-        isComplete && 'opacity-60',
-      )}
+      className="flex items-center gap-3 rounded-3xl bg-surface px-4 py-3 text-left shadow-card active:opacity-80"
     >
-      <Ring
-        value={progress}
-        size={46}
-        stroke={5}
-        color={color}
-        trackColor={withAlpha(typeof color === 'string' ? color : '#e7d3db', 0.22)}
-      >
+      <Ring value={totals.progress} size={46} stroke={5}>
         <span className="text-sm" aria-hidden>
-          {category?.emoji ?? '📄'}
+          💳
         </span>
       </Ring>
       <div className="min-w-0 flex-1">
-        <p className="truncate font-bold text-ink">{plan.name}</p>
+        <p className="truncate font-bold text-ink">{name}</p>
         <p
           className={cn(
             'truncate text-xs font-semibold',
-            overdueCount > 0 ? 'text-over' : 'text-ink-faint',
+            totals.overdueCount > 0 ? 'text-over' : 'text-ink-faint',
           )}
         >
-          {sub}
+          {members.length === 1 ? '1 purchase' : `${members.length} purchases`}
+          {totals.nextDueOn
+            ? totals.overdueCount > 0
+              ? ` · ${money(totals.nextAmount)} overdue`
+              : ` · ${money(totals.nextAmount)} due ${shortDate(totals.nextDueOn)}`
+            : ''}
         </p>
       </div>
       <div className="shrink-0 text-right">
-        <span className="block font-extrabold text-ink tabular-nums">{money(remaining)}</span>
+        <span className="block font-extrabold text-ink tabular-nums">
+          {money(totals.remaining)}
+        </span>
         <span className="text-[0.6rem] font-bold text-ink-faint">left</span>
       </div>
     </button>

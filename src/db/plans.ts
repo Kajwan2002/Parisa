@@ -73,6 +73,18 @@ export interface Installment {
   overdue: boolean
 }
 
+/** Your share of a split as a percentage, or null when payments aren't split. */
+export function planSplitPct(plan: Pick<Plan, 'splitYourPct' | 'splitWithPartner'>): number | null {
+  if (plan.splitYourPct != null) return Math.min(100, Math.max(0, plan.splitYourPct))
+  return plan.splitWithPartner ? 50 : null
+}
+
+/** What your half of a payment comes to, at the plan's remembered split. */
+export function splitShareOf(amount: number, pct: number | null): number | null {
+  if (pct == null) return null
+  return Math.max(0, Math.min(amount, Math.round((amount * pct) / 100)))
+}
+
 export function planKind(plan: Pick<Plan, 'kind'>): PlanKind {
   return plan.kind === 'open' ? 'open' : 'fixed'
 }
@@ -193,8 +205,10 @@ export interface PlanInput {
   count: number
   /** charge this much each time instead of splitting evenly; null = even split */
   installmentAmount: number | null
-  /** default new payments on this plan to being split with your partner */
-  splitWithPartner: boolean
+  /** your percentage of a split, or null to not split payments */
+  splitYourPct: number | null
+  /** optional card this purchase sits under */
+  cardName: string | null
   everyCount: number
   everyUnit: RecurUnit
   startDate: DateStr
@@ -219,7 +233,10 @@ function clean(input: PlanInput) {
     kind: input.kind,
     count,
     installmentAmount: per,
-    splitWithPartner: !!input.splitWithPartner,
+    splitYourPct:
+      input.splitYourPct == null ? null : Math.min(100, Math.max(0, Math.round(input.splitYourPct))),
+    splitWithPartner: input.splitYourPct != null,
+    cardName: input.cardName?.trim() || null,
     everyCount: Math.max(1, Math.round(input.everyCount)),
     everyUnit: input.everyUnit,
     startDate: input.startDate,

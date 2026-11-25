@@ -62,6 +62,13 @@ two kinds:
   nothing is ever late and it never appears in the dashboard nudge; it still
   counts toward what is left to pay overall.
 
+Plans can be grouped under a **card**: give two of them the same card name and
+the Plans screen shows one row adding them up, with a screen behind it for the
+card's balance, its combined next bill and the purchases making it up. They stay
+separate plans — each with its own schedule, payments and split. Merging them
+into a single balance would dissolve exactly the per-purchase detail a split
+needs, since one monthly card payment covers several purchases at once.
+
 A plan can be **split with your partner**. You pay each installment in full, so
 the whole amount counts as leaving your account, and their share goes onto the
 shared tab as money owed back to you — €19.99 paid becomes €10.00 of your own

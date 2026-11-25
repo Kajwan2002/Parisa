@@ -20,6 +20,8 @@ import {
   deletePlan,
   deletePlanPayment,
   describePlanInterval,
+  planSplitPct,
+  splitShareOf,
   updatePlan,
   type Installment,
 } from '@/db/plans'
@@ -202,7 +204,7 @@ export function PlanDetailPage() {
         suggested={suggested}
         currency={currency}
         partner={partner}
-        splitByDefault={!!plan.splitWithPartner}
+        splitPct={planSplitPct(plan)}
         onSubmit={async (amount, paidOn, note, yourShare, paidBy) => {
           await addPlanPayment(plan.id, { amount, paidOn, note, yourShare, paidBy })
           setPaying(false)
@@ -341,7 +343,7 @@ function PaymentSheet({
   suggested,
   currency,
   partner,
-  splitByDefault,
+  splitPct,
   onSubmit,
 }: {
   open: boolean
@@ -349,7 +351,8 @@ function PaymentSheet({
   suggested: number
   currency: string
   partner: string
-  splitByDefault: boolean
+  /** your share as a percentage, or null when this plan isn't split */
+  splitPct: number | null
   onSubmit: (
     amount: number,
     paidOn: string,
@@ -361,9 +364,9 @@ function PaymentSheet({
   const [amount, setAmount] = useState(suggested)
   const [paidOn, setPaidOn] = useState(todayStr())
   const [note, setNote] = useState('')
-  const [split, setSplit] = useState(splitByDefault)
+  const [split, setSplit] = useState(splitPct != null)
   const [paidBy, setPaidBy] = useState<TabParty>('you')
-  const [yourShare, setYourShare] = useState(Math.round(suggested / 2))
+  const [yourShare, setYourShare] = useState(splitShareOf(suggested, splitPct) ?? 0)
   const [seeded, setSeeded] = useState(false)
 
   // prefill with what's actually due, but let an edit stand
@@ -372,15 +375,18 @@ function PaymentSheet({
     setAmount(suggested)
     setPaidOn(todayStr())
     setNote('')
-    setSplit(splitByDefault)
+    setSplit(splitPct != null)
     setPaidBy('you')
-    setYourShare(Math.round(suggested / 2))
+    setYourShare(splitShareOf(suggested, splitPct) ?? 0)
   }
   if (!open && seeded) setSeeded(false)
 
-  // keep the split halved as the amount is typed, until it is nudged by hand
+  // follow the plan's remembered split as the amount is typed, until it is
+  // nudged by hand — so a plan split 70/30 opens at 70/30 every month
   const [touchedSplit, setTouchedSplit] = useState(false)
-  const effectiveShare = touchedSplit ? Math.min(yourShare, amount) : Math.round(amount / 2)
+  const effectiveShare = touchedSplit
+    ? Math.min(yourShare, amount)
+    : (splitShareOf(amount, splitPct ?? 50) ?? Math.round(amount / 2))
 
   return (
     <Sheet open={open} onClose={onClose} title="Record a payment">

@@ -270,6 +270,16 @@ async function planViews(): Promise<PlanView[]> {
     })
 }
 
+/** Card names already in use, for suggesting while typing. */
+export function useCardNames(): string[] | undefined {
+  return useLiveQuery(async () => {
+    const names = (await db.plans.toArray())
+      .map((p) => p.cardName?.trim())
+      .filter((n): n is string => !!n)
+    return [...new Set(names)].sort((a, b) => a.localeCompare(b))
+  }, [])
+}
+
 export function usePlans(): PlanView[] | undefined {
   return useLiveQuery(() => planViews(), [])
 }

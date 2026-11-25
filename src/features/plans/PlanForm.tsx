@@ -4,13 +4,20 @@ import { CategoryGrid } from '@/components/CategoryGrid'
 import { Segmented } from '@/components/Segmented'
 import { MoneyField } from '@/components/MoneyField'
 import { MoneyKeypad } from '@/components/MoneyKeypad'
+import { SplitSlider } from '@/components/SplitSlider'
 import { useToast } from '@/components/Toast'
 import { cn } from '@/lib/cn'
 import { shortDate, todayStr } from '@/lib/dates'
 import { formatMoney } from '@/lib/money'
 import { addCategory } from '@/db/repo'
-import { useCategories, useSettings } from '@/db/queries'
-import { installmentAmounts, installmentDate, planKind, type PlanInput } from '@/db/plans'
+import { useCardNames, useCategories, useSettings } from '@/db/queries'
+import {
+  installmentAmounts,
+  installmentDate,
+  planKind,
+  planSplitPct,
+  type PlanInput,
+} from '@/db/plans'
 import type { Plan, PlanKind, RecurUnit } from '@/db/types'
 import { CategoryForm } from '@/features/categories/CategoryForm'
 
@@ -52,7 +59,11 @@ export function PlanForm({
   const [unit, setUnit] = useState<RecurUnit>(initial?.everyUnit ?? 'month')
   const [startDate, setStartDate] = useState(initial?.startDate ?? todayStr())
   const [note, setNote] = useState(initial?.note ?? '')
-  const [split, setSplit] = useState(!!initial?.splitWithPartner)
+  const initialPct = initial ? planSplitPct(initial) : null
+  const [split, setSplit] = useState(initialPct != null)
+  const [splitPct, setSplitPct] = useState(initialPct ?? 50)
+  const [cardName, setCardName] = useState(initial?.cardName ?? '')
+  const cards = useCardNames()
   const [creatingCat, setCreatingCat] = useState(false)
 
   const fixed = kind === 'fixed'
@@ -60,6 +71,8 @@ export function PlanForm({
   const perInstallment = evenSplit ? null : perAmount
   const per =
     fixed && total > 0 ? installmentAmounts(total, count, perInstallment) : []
+  // split the slider against one real payment where there is one, else the total
+  const splitRef = per.length > 0 ? per[0] : total
   const lastDue =
     per.length > 0
       ? installmentDate({ startDate, everyUnit: unit, everyCount }, per.length - 1)
@@ -97,7 +110,8 @@ export function PlanForm({
           kind,
           count,
           installmentAmount: perInstallment,
-          splitWithPartner: split,
+          splitYourPct: split ? splitPct : null,
+          cardName,
           everyCount,
           everyUnit: unit,
           startDate,
@@ -247,7 +261,7 @@ export function PlanForm({
         <span className="font-bold text-ink">
           Split with {partner}
           <span className="block text-xs font-semibold text-ink-faint">
-            You pay each installment in full and half of it goes on the shared tab
+            You pay each installment in full and their share goes on the shared tab
           </span>
         </span>
         <input
@@ -256,6 +270,47 @@ export function PlanForm({
           onChange={(e) => setSplit(e.target.checked)}
           className="ml-3 h-6 w-6 shrink-0 accent-[var(--color-rose)]"
         />
+      </label>
+
+      {split && (
+        <div>
+          <p className="mb-2 px-1 text-xs font-bold text-ink-soft">
+            How you split it{splitRef > 0 ? ' — per payment' : ''}
+          </p>
+          <SplitSlider
+            total={splitRef}
+            yourShare={Math.round((splitRef * splitPct) / 100)}
+            onChange={(v) => setSplitPct(splitRef > 0 ? (v / splitRef) * 100 : 50)}
+            currency={currency}
+            partnerName={partner}
+          />
+          <p className="mt-2 px-1 text-xs font-semibold text-ink-faint">
+            Remembered, so every payment starts at this split instead of going back to half.
+            You can still change it on any single payment.
+          </p>
+        </div>
+      )}
+
+      <label>
+        <span className="mb-2 block px-1 text-xs font-bold text-ink-soft">
+          On a card? <span className="font-medium text-ink-faint">(optional)</span>
+        </span>
+        <input
+          value={cardName}
+          onChange={(e) => setCardName(e.target.value)}
+          placeholder="e.g. Credit card"
+          list="plan-card-names"
+          className="w-full rounded-2xl bg-surface px-4 py-3 font-semibold text-ink shadow-card outline-none placeholder:text-ink-faint focus:ring-2 focus:ring-rose-soft"
+        />
+        <datalist id="plan-card-names">
+          {(cards ?? []).map((c) => (
+            <option key={c} value={c} />
+          ))}
+        </datalist>
+        <span className="mt-2 block px-1 text-xs font-semibold text-ink-faint">
+          Purchases sharing a card name are added up under it, while each keeps its own
+          schedule and its own split.
+        </span>
       </label>
 
       <label>
