@@ -69,6 +69,13 @@ separate plans — each with its own schedule, payments and split. Merging them
 into a single balance would dissolve exactly the per-purchase detail a split
 needs, since one monthly card payment covers several purchases at once.
 
+A card is paid as one figure — **Pay the card** takes a lump sum and spreads it
+across the purchases, oldest installment first, with shortcuts for this month's
+bill or the whole balance. Each purchase it reaches gets its own payment at its
+own split, so €150 across three purchases can put three different amounts on the
+tab at three different ratios. The sheet previews where the money lands before
+it is recorded, and anything above the balance is clamped to it.
+
 A plan can be **split with your partner**. You pay each installment in full, so
 the whole amount counts as leaving your account, and their share goes onto the
 shared tab as money owed back to you — €19.99 paid becomes €10.00 of your own

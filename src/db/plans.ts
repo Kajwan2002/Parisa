@@ -202,6 +202,101 @@ export function buildPlanView(plan: Plan, allPayments: PlanPayment[]): PlanView 
   }
 }
 
+/* ------------------------------ paying a card ---------------------------- */
+
+export interface CardAllocation {
+  planId: string
+  planName: string
+  amount: number
+  /** your half of it, at that plan's own remembered split */
+  yourShare: number | null
+}
+
+/**
+ * Spread one lump sum across the purchases on a card, oldest installment first.
+ *
+ * A card bill arrives as a single figure and nobody should have to work out
+ * which purchases it covers. Each purchase still gets its own payment at its
+ * own split, so paying €150 across three purchases puts three separate amounts
+ * on the tab at three different ratios — which is the whole reason these stay
+ * separate plans.
+ */
+export function allocateCardPayment(views: PlanView[], amount: number): CardAllocation[] {
+  let left = Math.max(0, Math.round(amount))
+  const byPlan = new Map<string, number>()
+
+  const take = (planId: string, n: number) => {
+    if (n <= 0) return
+    byPlan.set(planId, (byPlan.get(planId) ?? 0) + n)
+    left -= n
+  }
+
+  // every unpaid installment on the card, soonest due first
+  const due = views
+    .filter((v) => v.kind !== 'open')
+    .flatMap((v) =>
+      v.installments
+        .filter((i) => i.status !== 'paid')
+        .map((i) => ({
+          planId: v.plan.id,
+          dueOn: i.dueOn,
+          createdAt: v.plan.createdAt,
+          outstanding: i.amount - i.paid,
+        })),
+    )
+    .sort((a, b) => a.dueOn.localeCompare(b.dueOn) || a.createdAt - b.createdAt)
+
+  for (const item of due) {
+    if (left <= 0) break
+    take(item.planId, Math.min(item.outstanding, left))
+  }
+
+  // anything over goes to open-ended purchases, which have no schedule to walk
+  for (const v of views) {
+    if (left <= 0) break
+    if (v.kind !== 'open') continue
+    take(v.plan.id, Math.min(v.remaining, left))
+  }
+
+  return views
+    .filter((v) => (byPlan.get(v.plan.id) ?? 0) > 0)
+    .map((v) => {
+      const planAmount = byPlan.get(v.plan.id) as number
+      return {
+        planId: v.plan.id,
+        planName: v.plan.name,
+        amount: planAmount,
+        yourShare: splitShareOf(planAmount, planSplitPct(v.plan)),
+      }
+    })
+}
+
+/** What the card could still take in one go. */
+export function cardOutstanding(views: PlanView[]): number {
+  return views.reduce((n, v) => n + v.remaining, 0)
+}
+
+/**
+ * Record a lump payment against a card: one payment per purchase it reaches,
+ * each at that purchase's own split.
+ */
+export async function payCard(
+  views: PlanView[],
+  input: { amount: number; paidOn: DateStr; note: string },
+): Promise<CardAllocation[]> {
+  const parts = allocateCardPayment(views, input.amount)
+  for (const part of parts) {
+    await addPlanPayment(part.planId, {
+      amount: part.amount,
+      paidOn: input.paidOn,
+      note: input.note,
+      yourShare: part.yourShare,
+      paidBy: 'you',
+    })
+  }
+  return parts
+}
+
 /* --------------------------------- CRUD --------------------------------- */
 
 export interface PlanInput {
