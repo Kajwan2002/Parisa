@@ -10,8 +10,9 @@ import { cn } from '@/lib/cn'
 import { shortDate, todayStr } from '@/lib/dates'
 import { formatMoney } from '@/lib/money'
 import { addCategory } from '@/db/repo'
-import { useCardNames, useCategories, useSettings } from '@/db/queries'
+import { useCategories, useSettings } from '@/db/queries'
 import {
+  CARD_LABEL,
   installmentAmounts,
   installmentDate,
   planKind,
@@ -62,8 +63,10 @@ export function PlanForm({
   const initialPct = initial ? planSplitPct(initial) : null
   const [split, setSplit] = useState(initialPct != null)
   const [splitPct, setSplitPct] = useState(initialPct ?? 50)
-  const [cardName, setCardName] = useState(initial?.cardName ?? '')
-  const cards = useCardNames()
+  // keep whatever card an existing plan is already on, so a plan filed under a
+  // differently named card isn't quietly moved just by opening the form
+  const [onCard, setOnCard] = useState(!!initial?.cardName?.trim())
+  const existingCard = initial?.cardName?.trim() || null
   const [creatingCat, setCreatingCat] = useState(false)
 
   const fixed = kind === 'fixed'
@@ -111,7 +114,7 @@ export function PlanForm({
           count,
           installmentAmount: perInstallment,
           splitYourPct: split ? splitPct : null,
-          cardName,
+          cardName: onCard ? (existingCard ?? CARD_LABEL) : null,
           everyCount,
           everyUnit: unit,
           startDate,
@@ -291,26 +294,19 @@ export function PlanForm({
         </div>
       )}
 
-      <label>
-        <span className="mb-2 block px-1 text-xs font-bold text-ink-soft">
-          On a card? <span className="font-medium text-ink-faint">(optional)</span>
+      <label className="flex items-center justify-between rounded-2xl bg-surface px-4 py-3 shadow-card">
+        <span className="font-bold text-ink">
+          On the {existingCard ?? CARD_LABEL.toLowerCase()}
+          <span className="block text-xs font-semibold text-ink-faint">
+            Grouped with your other card purchases, while keeping its own schedule and split
+          </span>
         </span>
         <input
-          value={cardName}
-          onChange={(e) => setCardName(e.target.value)}
-          placeholder="e.g. Credit card"
-          list="plan-card-names"
-          className="w-full rounded-2xl bg-surface px-4 py-3 font-semibold text-ink shadow-card outline-none placeholder:text-ink-faint focus:ring-2 focus:ring-rose-soft"
+          type="checkbox"
+          checked={onCard}
+          onChange={(e) => setOnCard(e.target.checked)}
+          className="ml-3 h-6 w-6 shrink-0 accent-[var(--color-rose)]"
         />
-        <datalist id="plan-card-names">
-          {(cards ?? []).map((c) => (
-            <option key={c} value={c} />
-          ))}
-        </datalist>
-        <span className="mt-2 block px-1 text-xs font-semibold text-ink-faint">
-          Purchases sharing a card name are added up under it, while each keeps its own
-          schedule and its own split.
-        </span>
       </label>
 
       <label>

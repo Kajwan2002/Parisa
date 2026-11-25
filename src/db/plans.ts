@@ -73,6 +73,13 @@ export interface Installment {
   overdue: boolean
 }
 
+/**
+ * The one card purchases get grouped under. Stored as a name rather than a flag
+ * so several cards remain possible later without touching the data, but the UI
+ * offers a single tick — nobody wants to type this on every purchase.
+ */
+export const CARD_LABEL = 'Credit card'
+
 /** Your share of a split as a percentage, or null when payments aren't split. */
 export function planSplitPct(plan: Pick<Plan, 'splitYourPct' | 'splitWithPartner'>): number | null {
   if (plan.splitYourPct != null) return Math.min(100, Math.max(0, plan.splitYourPct))

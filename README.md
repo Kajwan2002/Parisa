@@ -62,7 +62,7 @@ two kinds:
   nothing is ever late and it never appears in the dashboard nudge; it still
   counts toward what is left to pay overall.
 
-Plans can be grouped under a **card**: give two of them the same card name and
+Plans can be grouped under a **card**: tick "On the credit card" on two of them and
 the Plans screen shows one row adding them up, with a screen behind it for the
 card's balance, its combined next bill and the purchases making it up. They stay
 separate plans — each with its own schedule, payments and split. Merging them
