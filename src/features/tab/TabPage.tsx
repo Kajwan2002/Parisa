@@ -15,6 +15,7 @@ import {
   useActiveTheme,
   useCategoryMap,
   useSettings,
+  usePlannedTab,
   useSyncStatus,
   useTabSummary,
 } from '@/db/queries'
@@ -47,6 +48,7 @@ export function TabPage() {
   const [syncOpen, setSyncOpen] = useState(false)
   const [deleteSettle, setDeleteSettle] = useState<string | null>(null)
   const sync = useSyncStatus()
+  const planned = usePlannedTab()
 
   const partner = tab?.partnerName?.trim() || 'Partner'
 
@@ -116,6 +118,11 @@ export function TabPage() {
                 {formatMoney(Math.abs(net), currency, { compact: true })}
               </p>
             )}
+            {!!planned?.amount && (
+              <p className="mt-0.5 text-xs font-bold text-ink-faint tabular-nums opacity-80">
+                +{formatMoney(planned.amount, currency, { compact: true })} to come
+              </p>
+            )}
           </div>
         </DonutChart>
 
@@ -128,6 +135,15 @@ export function TabPage() {
               you owe {formatMoney(grossByYou, currency, { compact: true })}
             </span>
           </div>
+        )}
+
+        {!!planned?.amount && (
+          <p className="px-4 text-center text-xs font-semibold text-ink-faint">
+            {partner} will owe{' '}
+            {formatMoney(Math.max(0, net) + planned.amount, currency, { compact: true })} once the{' '}
+            {planned.planCount === 1 ? 'split plan is' : `${planned.planCount} split plans are`}{' '}
+            paid off
+          </p>
         )}
 
         {hasAnything && (

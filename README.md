@@ -137,6 +137,13 @@ same cash view as the rest of the dashboard (`cashOut` in `src/db/queries.ts`),
 so fronting a shared bill lowers the balance by the whole amount and a repayment
 puts it back.
 
+The shared tab separates what is owed **now** from what is **coming**. Their
+share of a split plan only lands on the tab as each installment is actually
+paid, so the ring shows today's debt with the rest underneath in lower contrast
+— €64 owed, +€256 to come, €320 once the plans are paid off. It assumes you keep
+paying those installments, which is the normal case for your own plans; one they
+pay instead flips that installment when it's recorded.
+
 ## Shared-tab sync (optional)
 
 The two apps can keep **only the shared tab** in step — who owes whom, and the

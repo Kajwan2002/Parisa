@@ -12,7 +12,7 @@ import {
   type YearKey,
 } from '@/lib/dates'
 import { onSyncActivity, statusOf, type SyncStatus } from '@/sync/engine'
-import { buildPlanView, type PlanView } from './plans'
+import { buildPlanView, planSplitPct, splitShareOf, type PlanView } from './plans'
 import { THEME } from '@/theme/themes'
 import { db } from './db'
 import { getSettings } from './repo'
@@ -336,6 +336,45 @@ export function usePlansSummary(): PlansSummary | undefined {
           }
         : null,
     }
+  }, [])
+}
+
+/**
+ * Debt that hasn't happened yet: their share of everything still unpaid on the
+ * plans you split with them. It only lands on the tab as each installment is
+ * actually paid, so this is the "and then they'll owe" figure, kept apart from
+ * what is really owed today.
+ *
+ * It assumes you keep paying those installments, which is the normal case for
+ * your own plans — a payment they make instead flips that one when it's
+ * recorded.
+ */
+export interface PlannedTab {
+  /** their share of what is left to pay on split plans */
+  amount: number
+  /** how many plans contribute to it */
+  planCount: number
+}
+
+export function usePlannedTab(): PlannedTab | undefined {
+  return useLiveQuery(async () => {
+    const [plans, payments] = await Promise.all([
+      db.plans.toArray(),
+      db.planPayments.toArray(),
+    ])
+    let amount = 0
+    let planCount = 0
+    for (const plan of plans) {
+      const pct = planSplitPct(plan)
+      if (pct == null) continue
+      const { remaining } = buildPlanView(plan, payments)
+      if (remaining <= 0) continue
+      const theirs = splitShareOf(remaining, 100 - pct) ?? 0
+      if (theirs <= 0) continue
+      amount += theirs
+      planCount++
+    }
+    return { amount, planCount }
   }, [])
 }
 

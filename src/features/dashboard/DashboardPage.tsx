@@ -11,6 +11,7 @@ import {
   useActiveTheme,
   useDashboard,
   useMonthExpenses,
+  usePlannedTab,
   usePlansSummary,
   useSettings,
   useTabActive,
@@ -32,6 +33,7 @@ export function DashboardPage() {
   const tab = useTabSummary()
   const tabActive = useTabActive()
   const plans = usePlansSummary()
+  const plannedTab = usePlannedTab()
   const t = useActiveTheme()
   const currency = settings?.currency ?? 'EUR'
 
@@ -185,6 +187,12 @@ export function DashboardPage() {
                   ? `You owe ${tab.partnerName || 'Partner'} ${formatMoney(-tab.net, currency, { compact: true })}`
                   : cheer('All settled ✨')}
             </p>
+            {!!plannedTab?.amount && (
+              <p className="truncate text-xs font-semibold text-ink-faint">
+                +{formatMoney(plannedTab.amount, currency, { compact: true })} once the plans are
+                paid
+              </p>
+            )}
           </div>
           <span className="text-ink-faint">›</span>
         </button>
